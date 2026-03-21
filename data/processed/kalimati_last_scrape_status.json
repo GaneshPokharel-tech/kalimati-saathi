@@ -1,0 +1,12 @@
+{
+  "scrape_ran_at_utc": "2026-03-21T19:56:10.704612+00:00",
+  "requested_date_ad": null,
+  "requested_mode": "latest_page",
+  "returned_bs_date": "चैत ०८, २०८२",
+  "row_count": 0,
+  "wrote_outputs": false,
+  "history_rows_after_run": 3500,
+  "daily_csv_updated": false,
+  "history_updated": false,
+  "status": "no_data"
+}

@@ -1,0 +1,43 @@
+Kalimati Saathi Data Quality Audit
+============================================================
+Total rows: 3500
+Unique BS dates: 33
+Latest BS date by sort_date: चैत ०७, २०८२
+Rows on latest BS date: 107
+
+Null summary
+------------------------------------------------------------
+requested_date_ad: 107
+fetched_at_utc: 0
+scrape_date_bs: 0
+commodity: 0
+unit: 0
+min_price: 0
+max_price: 0
+avg_price: 0
+
+Duplicate audit
+------------------------------------------------------------
+Duplicate rows on key ['scrape_date_bs', 'commodity', 'unit']: 0
+
+Invalid price logic audit
+------------------------------------------------------------
+Rows with min/max/avg inconsistency: 0
+
+Zero or negative price audit
+------------------------------------------------------------
+Rows with zero/negative min|max|avg: 0
+
+Unit distribution (all history)
+------------------------------------------------------------
+      unit  rows
+      केजी  3435
+प्रति गोटा    33
+     दर्जन    32
+
+Unit distribution (latest date)
+------------------------------------------------------------
+      unit  rows
+      केजी   105
+     दर्जन     1
+प्रति गोटा     1

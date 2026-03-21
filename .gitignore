@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+data/archive/*.html
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+logs/
+data/archive/
+data/processed/kalimati.db
+kalimati_inspect.ipynb

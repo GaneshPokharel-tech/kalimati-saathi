@@ -1,0 +1,6 @@
+# Kalimati Saathi daily pipeline
+# Runs every day at 7:05 AM local time
+5 7 * * * cd /Users/ganeshpokharel/projects/kalimati-saathi && /bin/bash ./run_daily_pipeline.sh
+
+# Optional: run twice daily instead
+# 5 7,17 * * * cd /Users/ganeshpokharel/projects/kalimati-saathi && /bin/bash ./run_daily_pipeline.sh
