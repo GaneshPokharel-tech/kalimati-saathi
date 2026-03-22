@@ -175,6 +175,18 @@ def main():
         coverage_rows,
         columns=["requested_date_ad", "returned_bs_date", "parsed_row_count", "status"],
     )
+
+    if BACKFILL_COVERAGE_PATH.exists():
+        try:
+            existing_coverage_df = pd.read_csv(BACKFILL_COVERAGE_PATH)
+        except pd.errors.EmptyDataError:
+            existing_coverage_df = pd.DataFrame(columns=coverage_df.columns)
+
+        coverage_df = pd.concat([existing_coverage_df, coverage_df], ignore_index=True)
+        coverage_df = coverage_df.drop_duplicates(subset=["requested_date_ad"], keep="last")
+        coverage_df["requested_date_ad_dt"] = pd.to_datetime(coverage_df["requested_date_ad"], errors="coerce")
+        coverage_df = coverage_df.sort_values("requested_date_ad_dt").drop(columns=["requested_date_ad_dt"])
+
     coverage_df.to_csv(BACKFILL_COVERAGE_PATH, index=False, encoding="utf-8-sig")
 
     print()
