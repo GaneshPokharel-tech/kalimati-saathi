@@ -1,9 +1,16 @@
 import json
 import sqlite3
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import pandas as pd
 import streamlit as st
+
+from analysis.history_confidence import add_history_confidence
 
 st.set_page_config(page_title="Kalimati Saathi", layout="wide")
 
@@ -14,6 +21,8 @@ history_csv_path = Path("data/processed/kalimati_price_history.csv")
 anomaly_csv_path = Path("data/processed/kalimati_anomaly_report.csv")
 forecast_csv_path = Path("data/processed/kalimati_forecast_baseline.csv")
 market_brief_path = Path("data/processed/kalimati_market_brief.md")
+row_depth_policy_csv_path = Path("data/processed/row_depth_policy_flags.csv")
+price_quality_policy_csv_path = Path("data/processed/price_quality_policy_flags.csv")
 sqlite_db_path = Path("data/processed/kalimati.db")
 
 pipeline_status_path = Path("data/processed/kalimati_pipeline_status.json")
@@ -36,6 +45,18 @@ def load_table_from_sqlite(table_name):
         conn.close()
 
 
+
+def load_table_with_csv_fallback(table_name, csv_path):
+    df = load_table_from_sqlite(table_name)
+    if not df.empty:
+        return df, "SQLite"
+
+    if csv_path.exists():
+        return pd.read_csv(csv_path).copy(), "CSV"
+
+    return pd.DataFrame(), "None"
+
+
 def load_single_row_json_table(table_name):
     df = load_table_from_sqlite(table_name)
     if not df.empty:
@@ -44,36 +65,23 @@ def load_single_row_json_table(table_name):
 
 
 def load_history():
-    df = load_table_from_sqlite("price_history")
-    if not df.empty:
-        return df, "SQLite"
-
-    if history_csv_path.exists():
-        return pd.read_csv(history_csv_path).copy(), "CSV"
-
-    return pd.DataFrame(), "None"
+    return load_table_with_csv_fallback("price_history", history_csv_path)
 
 
 def load_anomaly():
-    df = load_table_from_sqlite("anomaly_report")
-    if not df.empty:
-        return df, "SQLite"
-
-    if anomaly_csv_path.exists():
-        return pd.read_csv(anomaly_csv_path).copy(), "CSV"
-
-    return pd.DataFrame(), "None"
+    return load_table_with_csv_fallback("anomaly_report", anomaly_csv_path)
 
 
 def load_forecast():
-    df = load_table_from_sqlite("forecast_baseline")
-    if not df.empty:
-        return df, "SQLite"
+    return load_table_with_csv_fallback("forecast_baseline", forecast_csv_path)
 
-    if forecast_csv_path.exists():
-        return pd.read_csv(forecast_csv_path).copy(), "CSV"
 
-    return pd.DataFrame(), "None"
+def load_row_depth_policy():
+    return load_table_with_csv_fallback("row_depth_policy_flags", row_depth_policy_csv_path)
+
+
+def load_price_quality_policy():
+    return load_table_with_csv_fallback("price_quality_policy_flags", price_quality_policy_csv_path)
 
 
 def load_market_brief():
@@ -91,6 +99,110 @@ def to_csv_bytes(df):
     return df.to_csv(index=False).encode("utf-8-sig")
 
 
+def normalize_bool_series(series):
+    if getattr(series, "dtype", None) == bool:
+        return series.fillna(False)
+    normalized = series.astype("string").fillna("").str.strip().str.lower()
+    return normalized.isin(["true", "1", "yes"])
+
+
+def enrich_watchlist_df(watchlist_df, row_depth_policy_df, price_quality_policy_df):
+    watchlist_df = watchlist_df.copy()
+    if watchlist_df.empty:
+        return watchlist_df
+
+    if "latest_is_default_model_window" in watchlist_df.columns:
+        watchlist_df["latest_is_default_model_window"] = normalize_bool_series(
+            watchlist_df["latest_is_default_model_window"]
+        )
+    else:
+        watchlist_df["latest_is_default_model_window"] = False
+
+    if not row_depth_policy_df.empty:
+        row_depth_watch = row_depth_policy_df[
+            [
+                "scrape_date_bs",
+                "row_depth_severity",
+                "exclude_from_default_model_window",
+                "manual_review",
+                "policy_action",
+            ]
+        ].drop_duplicates().rename(
+            columns={
+                "scrape_date_bs": "latest_bs_date",
+                "row_depth_severity": "latest_row_depth_flag",
+                "exclude_from_default_model_window": "latest_row_depth_excluded",
+                "manual_review": "latest_row_depth_manual_review",
+                "policy_action": "latest_row_depth_policy_action",
+            }
+        )
+        watchlist_df = watchlist_df.merge(row_depth_watch, on="latest_bs_date", how="left")
+    else:
+        watchlist_df["latest_row_depth_flag"] = pd.NA
+        watchlist_df["latest_row_depth_excluded"] = False
+        watchlist_df["latest_row_depth_manual_review"] = False
+        watchlist_df["latest_row_depth_policy_action"] = pd.NA
+
+    if not price_quality_policy_df.empty:
+        price_quality_watch = price_quality_policy_df[
+            [
+                "scrape_date_bs",
+                "commodity",
+                "unit",
+                "price_issue_type",
+                "exclude_from_default_model_window",
+                "manual_review",
+                "policy_action",
+            ]
+        ].drop_duplicates().rename(
+            columns={
+                "scrape_date_bs": "latest_bs_date",
+                "price_issue_type": "latest_price_quality_flag",
+                "exclude_from_default_model_window": "latest_price_quality_excluded",
+                "manual_review": "latest_price_quality_manual_review",
+                "policy_action": "latest_price_quality_policy_action",
+            }
+        )
+        watchlist_df = watchlist_df.merge(
+            price_quality_watch,
+            on=["latest_bs_date", "commodity", "unit"],
+            how="left",
+        )
+    else:
+        watchlist_df["latest_price_quality_flag"] = pd.NA
+        watchlist_df["latest_price_quality_excluded"] = False
+        watchlist_df["latest_price_quality_manual_review"] = False
+        watchlist_df["latest_price_quality_policy_action"] = pd.NA
+
+    watchlist_df["latest_row_depth_excluded"] = normalize_bool_series(
+        watchlist_df["latest_row_depth_excluded"]
+    )
+    watchlist_df["latest_row_depth_manual_review"] = normalize_bool_series(
+        watchlist_df["latest_row_depth_manual_review"]
+    )
+    watchlist_df["latest_price_quality_excluded"] = normalize_bool_series(
+        watchlist_df["latest_price_quality_excluded"]
+    )
+    watchlist_df["latest_price_quality_manual_review"] = normalize_bool_series(
+        watchlist_df["latest_price_quality_manual_review"]
+    )
+
+    watchlist_df["latest_policy_manual_review"] = (
+        watchlist_df["latest_row_depth_manual_review"]
+        | watchlist_df["latest_price_quality_manual_review"]
+    )
+    watchlist_df["latest_is_policy_excluded_from_default_model_window"] = (
+        watchlist_df["latest_row_depth_excluded"]
+        | watchlist_df["latest_price_quality_excluded"]
+    )
+    watchlist_df["latest_is_safe_default_row"] = (
+        watchlist_df["latest_is_default_model_window"]
+        & ~watchlist_df["latest_is_policy_excluded_from_default_model_window"]
+    )
+
+    return watchlist_df
+
+
 pipeline_status, pipeline_status_source = load_single_row_json_table("pipeline_status")
 scrape_status, scrape_status_source = load_single_row_json_table("scrape_status")
 
@@ -105,6 +217,8 @@ if not scrape_status and scrape_status_path.exists():
 history_df, history_source = load_history()
 anomaly_df, anomaly_source = load_anomaly()
 forecast_df, forecast_source = load_forecast()
+row_depth_policy_df, row_depth_policy_source = load_row_depth_policy()
+price_quality_policy_df, price_quality_policy_source = load_price_quality_policy()
 market_brief_content, market_brief_source = load_market_brief()
 
 if history_df.empty:
@@ -115,6 +229,88 @@ history_df["price_spread"] = history_df["max_price"] - history_df["min_price"]
 history_df["requested_date_ad_dt"] = pd.to_datetime(history_df["requested_date_ad"], errors="coerce")
 history_df["fetched_at_utc_dt"] = pd.to_datetime(history_df["fetched_at_utc"], errors="coerce").dt.tz_convert(None)
 history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(history_df["fetched_at_utc_dt"])
+
+if "history_confidence_band" not in history_df.columns:
+    history_df = add_history_confidence(history_df)
+
+if not row_depth_policy_df.empty:
+    row_depth_join_df = row_depth_policy_df[
+        [
+            "requested_date_ad",
+            "scrape_date_bs",
+            "row_count",
+            "row_depth_severity",
+            "exclude_from_default_model_window",
+            "manual_review",
+            "policy_action",
+        ]
+    ].drop_duplicates().rename(
+        columns={
+            "row_count": "row_depth_row_count",
+            "row_depth_severity": "row_depth_flag",
+            "exclude_from_default_model_window": "row_depth_excluded",
+            "manual_review": "row_depth_manual_review",
+            "policy_action": "row_depth_policy_action",
+        }
+    )
+    history_df = history_df.merge(
+        row_depth_join_df,
+        on=["requested_date_ad", "scrape_date_bs"],
+        how="left",
+    )
+else:
+    history_df["row_depth_row_count"] = pd.NA
+    history_df["row_depth_flag"] = pd.NA
+    history_df["row_depth_excluded"] = False
+    history_df["row_depth_manual_review"] = False
+    history_df["row_depth_policy_action"] = pd.NA
+
+if not price_quality_policy_df.empty:
+    price_quality_join_df = price_quality_policy_df[
+        [
+            "requested_date_ad",
+            "scrape_date_bs",
+            "commodity",
+            "unit",
+            "price_issue_type",
+            "exclude_from_default_model_window",
+            "manual_review",
+            "policy_action",
+        ]
+    ].drop_duplicates().rename(
+        columns={
+            "price_issue_type": "price_quality_flag",
+            "exclude_from_default_model_window": "price_quality_excluded",
+            "manual_review": "price_quality_manual_review",
+            "policy_action": "price_quality_policy_action",
+        }
+    )
+    history_df = history_df.merge(
+        price_quality_join_df,
+        on=["requested_date_ad", "scrape_date_bs", "commodity", "unit"],
+        how="left",
+    )
+else:
+    history_df["price_quality_flag"] = pd.NA
+    history_df["price_quality_excluded"] = False
+    history_df["price_quality_manual_review"] = False
+    history_df["price_quality_policy_action"] = pd.NA
+
+history_df["row_depth_excluded"] = normalize_bool_series(history_df["row_depth_excluded"])
+history_df["row_depth_manual_review"] = normalize_bool_series(history_df["row_depth_manual_review"])
+history_df["price_quality_excluded"] = normalize_bool_series(history_df["price_quality_excluded"])
+history_df["price_quality_manual_review"] = normalize_bool_series(history_df["price_quality_manual_review"])
+
+history_df["policy_manual_review"] = (
+    history_df["row_depth_manual_review"] | history_df["price_quality_manual_review"]
+)
+history_df["is_policy_excluded_from_default_model_window"] = (
+    history_df["row_depth_excluded"] | history_df["price_quality_excluded"]
+)
+history_df["is_safe_default_row"] = (
+    normalize_bool_series(history_df["is_default_model_window"])
+    & ~history_df["is_policy_excluded_from_default_model_window"]
+)
 
 if scrape_status:
     st.subheader("Pipeline Status")
@@ -158,6 +354,13 @@ if market_brief_content:
 else:
     st.info("Market brief not found. Run the daily pipeline first.")
 
+
+st.caption(
+    f"Trust layer sources: confidence=helper | "
+    f"row-depth policy={row_depth_policy_source} ({len(row_depth_policy_df):,} rows) | "
+    f"price-quality policy={price_quality_policy_source} ({len(price_quality_policy_df):,} rows)"
+)
+
 date_order_df = (
     history_df.groupby("scrape_date_bs", as_index=False)["sort_date"]
     .max()
@@ -169,8 +372,48 @@ available_dates = date_order_df["scrape_date_bs"].tolist()
 selected_date = st.selectbox("Select market date", available_dates, index=len(available_dates) - 1)
 latest_saved_bs_date = pipeline_status.get("latest_history_bs_date") or available_dates[-1]
 
-selected_df = history_df[history_df["scrape_date_bs"] == selected_date].copy()
-selected_df = selected_df.sort_values("commodity").reset_index(drop=True)
+view_mode = st.radio(
+    "History view",
+    ["Safe default window", "Full raw history"],
+    horizontal=True,
+    help="Safe default window prefers the default model window and excludes policy-flagged rows. Full raw history keeps all rows visible for audit.",
+)
+
+selected_raw_df = history_df[history_df["scrape_date_bs"] == selected_date].copy()
+
+if view_mode == "Safe default window":
+    selected_df = selected_raw_df[selected_raw_df["is_safe_default_row"]].copy()
+else:
+    selected_df = selected_raw_df.copy()
+
+selected_df = selected_df.sort_values(["commodity", "unit"]).reset_index(drop=True)
+
+st.caption(
+    f"Selected date view: showing {len(selected_df):,} of {len(selected_raw_df):,} rows | "
+    f"policy-excluded rows on this date: {int(selected_raw_df['is_policy_excluded_from_default_model_window'].sum())} | "
+    f"manual-review rows on this date: {int(selected_raw_df['policy_manual_review'].sum())}"
+)
+
+if selected_df.empty and len(selected_raw_df) > 0 and view_mode == "Safe default window":
+    st.warning("No rows remain in the safe default window for this date. Switch to Full raw history to inspect all rows.")
+
+if len(selected_raw_df) > 0:
+    st.subheader("Trust Summary")
+    confidence_counts = (
+        selected_raw_df["history_confidence_band"]
+        .fillna("unknown")
+        .value_counts()
+        .to_dict()
+    )
+    confidence_summary = ", ".join([f"{k}: {v}" for k, v in confidence_counts.items()]) if confidence_counts else "none"
+
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("Visible rows", len(selected_df))
+    t2.metric("Default window rows", int(normalize_bool_series(selected_raw_df["is_default_model_window"]).sum()))
+    t3.metric("Policy-excluded rows", int(selected_raw_df["is_policy_excluded_from_default_model_window"].sum()))
+    t4.metric("Manual-review rows", int(selected_raw_df["policy_manual_review"].sum()))
+
+    st.caption(f"Confidence bands on selected date: {confidence_summary}")
 
 st.subheader("Market Overview")
 
@@ -216,29 +459,49 @@ if len(date_order_df) >= 2:
 
     if selected_idx > 0:
         previous_date = date_order_df.iloc[selected_idx - 1]["scrape_date_bs"]
-        previous_df = history_df[history_df["scrape_date_bs"] == previous_date][["commodity", "avg_price"]].rename(
-            columns={"avg_price": "previous_avg_price"}
-        )
-        current_df = selected_df[["commodity", "avg_price"]].rename(
-            columns={"avg_price": "current_avg_price"}
+
+        previous_df = (
+            history_df[history_df["scrape_date_bs"] == previous_date][["commodity", "unit", "avg_price"]]
+            .rename(columns={"avg_price": "previous_avg_price"})
+            .copy()
         )
 
-        compare_df = current_df.merge(previous_df, on="commodity", how="inner")
-        compare_df["price_change"] = compare_df["current_avg_price"] - compare_df["previous_avg_price"]
+        current_df = (
+            selected_df[["commodity", "unit", "avg_price"]]
+            .rename(columns={"avg_price": "current_avg_price"})
+            .copy()
+        )
+
+        compare_df = current_df.merge(
+            previous_df,
+            on=["commodity", "unit"],
+            how="inner",
+        )
+
+        compare_df["price_change"] = (
+            compare_df["current_avg_price"] - compare_df["previous_avg_price"]
+        )
 
         st.subheader(f"Trend vs Previous Date ({previous_date})")
-
         c1, c2 = st.columns(2)
+
+        display_cols = [
+            "commodity",
+            "unit",
+            "previous_avg_price",
+            "current_avg_price",
+            "price_change",
+        ]
 
         with c1:
             st.write("Top Price Increases")
             top_up_df = compare_df.sort_values("price_change", ascending=False).head(10)
-            st.dataframe(top_up_df, width="stretch")
+            st.dataframe(top_up_df[display_cols], width="stretch")
 
         with c2:
             st.write("Top Price Decreases")
             top_down_df = compare_df.sort_values("price_change", ascending=True).head(10)
-            st.dataframe(top_down_df, width="stretch")
+            st.dataframe(top_down_df[display_cols], width="stretch")
 
 st.subheader("Filtered Daily Price Table")
 
@@ -250,12 +513,35 @@ if len(filtered_df) > 0:
         mime="text/csv",
     )
 
-st.dataframe(filtered_df, width="stretch")
+table_display_cols = [
+    "commodity",
+    "unit",
+    "min_price",
+    "max_price",
+    "avg_price",
+    "price_spread",
+    "history_confidence_band",
+    "is_default_model_window",
+    "is_policy_excluded_from_default_model_window",
+    "row_depth_flag",
+    "price_quality_flag",
+    "policy_manual_review",
+]
+
+table_display_cols = [col for col in table_display_cols if col in filtered_df.columns]
+
+st.dataframe(filtered_df[table_display_cols], width="stretch")
 
 if len(filtered_df) > 0:
     st.subheader("Top 15 by Average Price")
-    chart_df = filtered_df.sort_values("avg_price", ascending=False).head(15)[["commodity", "avg_price"]]
-    st.bar_chart(chart_df.set_index("commodity"))
+    chart_df = filtered_df.sort_values("avg_price", ascending=False).head(15).copy()
+    chart_df["item_label"] = (
+        chart_df["commodity"].fillna("").astype(str)
+        + " ("
+        + chart_df["unit"].fillna("N/A").astype(str)
+        + ")"
+    )
+    st.bar_chart(chart_df.set_index("item_label")["avg_price"])
 
     st.subheader("Top 10 Widest Price Spread")
     spread_df = filtered_df.sort_values("price_spread", ascending=False)[
@@ -265,12 +551,38 @@ if len(filtered_df) > 0:
 
     st.subheader("Commodity Price Trend")
 
-    trend_options = filtered_df["commodity"].dropna().sort_values().unique().tolist()
-    selected_trend_commodity = st.selectbox("Select commodity for trend", trend_options)
+trend_source_df = filtered_df.copy()
+trend_source_df = trend_source_df.dropna(subset=["commodity"])
 
-    trend_df = history_df[history_df["commodity"] == selected_trend_commodity].copy()
-    if selected_unit != "All":
-        trend_df = trend_df[trend_df["unit"] == selected_unit]
+if len(trend_source_df) > 0:
+    trend_source_df["commodity_key"] = (
+        trend_source_df["commodity"].fillna("").astype(str)
+        + " ("
+        + trend_source_df["unit"].fillna("N/A").astype(str)
+        + ")"
+    )
+
+    trend_options = sorted(trend_source_df["commodity_key"].unique().tolist())
+    selected_trend_key = st.selectbox("Select commodity for trend", trend_options)
+
+    selected_trend_row = trend_source_df[
+        trend_source_df["commodity_key"] == selected_trend_key
+    ].iloc[0]
+
+    selected_trend_commodity = selected_trend_row["commodity"]
+    selected_trend_unit = selected_trend_row["unit"]
+    selected_trend_unit_display = "N/A" if pd.isna(selected_trend_unit) else str(selected_trend_unit)
+
+    if pd.isna(selected_trend_unit):
+        trend_df = history_df[
+            (history_df["commodity"] == selected_trend_commodity)
+            & (history_df["unit"].isna())
+        ].copy()
+    else:
+        trend_df = history_df[
+            (history_df["commodity"] == selected_trend_commodity)
+            & (history_df["unit"] == selected_trend_unit)
+        ].copy()
 
     trend_df = (
         trend_df.sort_values("sort_date")[["sort_date", "avg_price", "commodity", "unit", "scrape_date_bs"]]
@@ -279,37 +591,69 @@ if len(filtered_df) > 0:
     )
 
     if len(trend_df) > 0:
-        st.caption(f"Trend history for {selected_trend_commodity}")
+        st.caption(f"Trend history for {selected_trend_commodity} ({selected_trend_unit_display})")
         st.line_chart(trend_df.set_index("sort_date")["avg_price"])
+
+        safe_commodity = str(selected_trend_commodity).replace("/", "-").replace(" ", "_")
+        safe_unit = selected_trend_unit_display.replace("/", "-").replace(" ", "_")
 
         st.download_button(
             "Download trend CSV",
             data=to_csv_bytes(trend_df.rename(columns={"sort_date": "date"})),
-            file_name=f"kalimati_trend_{selected_trend_commodity}.csv",
+            file_name=f"kalimati_trend_{safe_commodity}_{safe_unit}.csv",
             mime="text/csv",
         )
 
         st.dataframe(
-            trend_df.rename(columns={"sort_date": "date"})[["date", "scrape_date_bs", "commodity", "unit", "avg_price"]],
-            width="stretch"
+            trend_df.rename(columns={"sort_date": "date"})[
+                ["date", "scrape_date_bs", "commodity", "unit", "avg_price"]
+            ],
+            width="stretch",
         )
     else:
         st.info("No trend data available for the selected commodity.")
+else:
+    st.info("No trend data available for the selected commodity.")
 
 if selected_date == latest_saved_bs_date:
     if not anomaly_df.empty:
         st.subheader("Anomaly Watchlist")
 
         anomaly_display_df = anomaly_df.copy()
+        anomaly_display_df = anomaly_display_df[
+            anomaly_display_df["latest_bs_date"] == latest_saved_bs_date
+        ].copy()
+        anomaly_display_df = enrich_watchlist_df(
+            anomaly_display_df,
+            row_depth_policy_df,
+            price_quality_policy_df,
+        )
+
+        if view_mode == "Safe default window":
+            anomaly_display_df = anomaly_display_df[
+                anomaly_display_df["latest_is_safe_default_row"]
+            ].copy()
+
         if selected_unit != "All":
-            anomaly_display_df = anomaly_display_df[anomaly_display_df["unit"] == selected_unit]
+            anomaly_display_df = anomaly_display_df[
+                anomaly_display_df["unit"] == selected_unit
+            ]
 
         if search_text.strip():
             anomaly_display_df = anomaly_display_df[
-                anomaly_display_df["commodity"].str.contains(search_text.strip(), case=False, na=False)
+                anomaly_display_df["commodity"].str.contains(
+                    search_text.strip(), case=False, na=False
+                )
             ]
 
         if len(anomaly_display_df) > 0:
+            st.caption(
+                f"Anomaly watchlist scoped to latest saved date {latest_saved_bs_date} | "
+                f"rows: {len(anomaly_display_df):,} | "
+                f"manual-review rows: {int(anomaly_display_df['latest_policy_manual_review'].sum())} | "
+                f"policy-excluded rows: {int(anomaly_display_df['latest_is_policy_excluded_from_default_model_window'].sum())}"
+            )
+
             st.download_button(
                 "Download anomaly CSV",
                 data=to_csv_bytes(anomaly_display_df),
@@ -317,38 +661,43 @@ if selected_date == latest_saved_bs_date:
                 mime="text/csv",
             )
 
-        c1, c2 = st.columns(2)
+            anomaly_cols = [
+                "commodity",
+                "unit",
+                "latest_bs_date",
+                "current_avg_price",
+                "baseline_median_7",
+                "pct_change_vs_median",
+                "latest_history_confidence_band",
+                "latest_is_default_model_window",
+                "latest_is_policy_excluded_from_default_model_window",
+                "latest_price_quality_flag",
+                "latest_policy_manual_review",
+            ]
+            anomaly_cols = [col for col in anomaly_cols if col in anomaly_display_df.columns]
 
-        with c1:
-            st.write("Top Positive Spikes")
-            st.dataframe(
-                anomaly_display_df.sort_values("pct_change_vs_median", ascending=False)[
-                    [
-                        "commodity",
-                        "unit",
-                        "latest_bs_date",
-                        "current_avg_price",
-                        "baseline_median_7",
-                        "pct_change_vs_median",
-                    ]
-                ].head(10),
-                width="stretch"
-            )
+            c1, c2 = st.columns(2)
 
-        with c2:
-            st.write("Top Negative Drops")
-            st.dataframe(
-                anomaly_display_df.sort_values("pct_change_vs_median", ascending=True)[
-                    [
-                        "commodity",
-                        "unit",
-                        "latest_bs_date",
-                        "current_avg_price",
-                        "baseline_median_7",
-                        "pct_change_vs_median",
-                    ]
-                ].head(10),
-                width="stretch"
+            with c1:
+                st.write("Top Positive Spikes")
+                st.dataframe(
+                    anomaly_display_df.sort_values(
+                        "pct_change_vs_median", ascending=False
+                    )[anomaly_cols].head(10),
+                    width="stretch",
+                )
+
+            with c2:
+                st.write("Top Negative Drops")
+                st.dataframe(
+                    anomaly_display_df.sort_values(
+                        "pct_change_vs_median", ascending=True
+                    )[anomaly_cols].head(10),
+                    width="stretch",
+                )
+        else:
+            st.info(
+                "No anomaly rows remain after latest-date scoping and current trust/filter selection."
             )
     else:
         st.info("Anomaly report not found. Run analysis/anomaly_report.py first.")
@@ -357,15 +706,40 @@ if selected_date == latest_saved_bs_date:
         st.subheader("Forecast Watchlist")
 
         forecast_display_df = forecast_df.copy()
+        forecast_display_df = forecast_display_df[
+            forecast_display_df["latest_bs_date"] == latest_saved_bs_date
+        ].copy()
+        forecast_display_df = enrich_watchlist_df(
+            forecast_display_df,
+            row_depth_policy_df,
+            price_quality_policy_df,
+        )
+
+        if view_mode == "Safe default window":
+            forecast_display_df = forecast_display_df[
+                forecast_display_df["latest_is_safe_default_row"]
+            ].copy()
+
         if selected_unit != "All":
-            forecast_display_df = forecast_display_df[forecast_display_df["unit"] == selected_unit]
+            forecast_display_df = forecast_display_df[
+                forecast_display_df["unit"] == selected_unit
+            ]
 
         if search_text.strip():
             forecast_display_df = forecast_display_df[
-                forecast_display_df["commodity"].str.contains(search_text.strip(), case=False, na=False)
+                forecast_display_df["commodity"].str.contains(
+                    search_text.strip(), case=False, na=False
+                )
             ]
 
         if len(forecast_display_df) > 0:
+            st.caption(
+                f"Forecast watchlist scoped to latest saved date {latest_saved_bs_date} | "
+                f"rows: {len(forecast_display_df):,} | "
+                f"manual-review rows: {int(forecast_display_df['latest_policy_manual_review'].sum())} | "
+                f"policy-excluded rows: {int(forecast_display_df['latest_is_policy_excluded_from_default_model_window'].sum())}"
+            )
+
             st.download_button(
                 "Download forecast CSV",
                 data=to_csv_bytes(forecast_display_df),
@@ -373,42 +747,48 @@ if selected_date == latest_saved_bs_date:
                 mime="text/csv",
             )
 
-        c1, c2 = st.columns(2)
+            forecast_cols = [
+                "commodity",
+                "unit",
+                "latest_bs_date",
+                "latest_avg_price",
+                "rolling_median_7",
+                "next_day_forecast",
+                "forecast_delta_vs_latest",
+                "latest_history_confidence_band",
+                "latest_is_default_model_window",
+                "latest_is_policy_excluded_from_default_model_window",
+                "latest_price_quality_flag",
+                "latest_policy_manual_review",
+            ]
+            forecast_cols = [col for col in forecast_cols if col in forecast_display_df.columns]
 
-        with c1:
-            st.write("Expected Upward Reversion")
-            st.dataframe(
-                forecast_display_df.sort_values("forecast_delta_vs_latest", ascending=False)[
-                    [
-                        "commodity",
-                        "unit",
-                        "latest_bs_date",
-                        "latest_avg_price",
-                        "rolling_median_7",
-                        "next_day_forecast",
-                        "forecast_delta_vs_latest",
-                    ]
-                ].head(10),
-                width="stretch"
-            )
+            c1, c2 = st.columns(2)
 
-        with c2:
-            st.write("Expected Downward Reversion")
-            st.dataframe(
-                forecast_display_df.sort_values("forecast_delta_vs_latest", ascending=True)[
-                    [
-                        "commodity",
-                        "unit",
-                        "latest_bs_date",
-                        "latest_avg_price",
-                        "rolling_median_7",
-                        "next_day_forecast",
-                        "forecast_delta_vs_latest",
-                    ]
-                ].head(10),
-                width="stretch"
+            with c1:
+                st.write("Expected Upward Reversion")
+                st.dataframe(
+                    forecast_display_df.sort_values(
+                        "forecast_delta_vs_latest", ascending=False
+                    )[forecast_cols].head(10),
+                    width="stretch",
+                )
+
+            with c2:
+                st.write("Expected Downward Reversion")
+                st.dataframe(
+                    forecast_display_df.sort_values(
+                        "forecast_delta_vs_latest", ascending=True
+                    )[forecast_cols].head(10),
+                    width="stretch",
+                )
+        else:
+            st.info(
+                "No forecast rows remain after latest-date scoping and current trust/filter selection."
             )
     else:
         st.info("Forecast report not found. Run analysis/forecast_baseline.py first.")
 else:
-    st.info(f"Anomaly and forecast watchlists are available only for the latest saved history date: {latest_saved_bs_date}")
+    st.info(
+        f"Anomaly and forecast watchlists are shown only for the latest saved history date: {latest_saved_bs_date}"
+    )
