@@ -1,6 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
+from analysis.history_confidence import add_history_confidence
+
 HISTORY_PATH = "data/processed/kalimati_price_history.csv"
 OUTPUT_DIR = Path("data/processed")
 OUTPUT_PATH = OUTPUT_DIR / "kalimati_anomaly_report.csv"
@@ -8,9 +10,7 @@ OUTPUT_PATH = OUTPUT_DIR / "kalimati_anomaly_report.csv"
 
 def load_history():
     df = pd.read_csv(HISTORY_PATH).copy()
-    df["requested_date_ad_dt"] = pd.to_datetime(df["requested_date_ad"], errors="coerce")
-    df["fetched_at_utc_dt"] = pd.to_datetime(df["fetched_at_utc"], errors="coerce", utc=True).dt.tz_convert(None)
-    df["sort_date"] = df["requested_date_ad_dt"].fillna(df["fetched_at_utc_dt"])
+    df = add_history_confidence(df)
     df = df.dropna(subset=["commodity", "unit", "avg_price", "sort_date"]).copy()
     df = df.sort_values(["commodity", "unit", "sort_date"]).reset_index(drop=True)
     return df
@@ -52,6 +52,9 @@ def build_anomaly_report(df, lookback=7, min_history=8):
             "abs_change_vs_median": round(abs_change, 2),
             "pct_change_vs_median": round(pct_change, 2),
             "history_points": len(group),
+            "latest_history_confidence_band": latest_row["history_confidence_band"],
+            "latest_history_confidence_rank": int(latest_row["history_confidence_rank"]),
+            "latest_is_default_model_window": bool(latest_row["is_default_model_window"]),
         })
 
     report_df = pd.DataFrame(rows)
@@ -99,6 +102,7 @@ def main():
                 "abs_change_vs_median",
                 "pct_change_vs_median",
                 "history_points",
+                "latest_history_confidence_band",
             ]
         ].head(20).to_string(index=False)
     )
@@ -113,6 +117,7 @@ def main():
                 "current_avg_price",
                 "baseline_median_7",
                 "pct_change_vs_median",
+                "latest_history_confidence_band",
             ]
         ].head(10).to_string(index=False)
     )
@@ -127,6 +132,7 @@ def main():
                 "current_avg_price",
                 "baseline_median_7",
                 "pct_change_vs_median",
+                "latest_history_confidence_band",
             ]
         ].head(10).to_string(index=False)
     )

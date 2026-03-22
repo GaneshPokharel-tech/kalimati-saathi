@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from analysis.history_confidence import add_history_confidence, confidence_band_summary
+
 DB_PATH = Path("data/processed/kalimati.db")
 HISTORY_CSV = Path("data/processed/kalimati_price_history.csv")
 ANOMALY_CSV = Path("data/processed/kalimati_anomaly_report.csv")
@@ -58,26 +60,42 @@ def main():
     if history_df.empty:
         raise ValueError("No history data found")
 
-    history_df["requested_date_ad_dt"] = pd.to_datetime(history_df["requested_date_ad"], errors="coerce")
-    history_df["fetched_at_utc_dt"] = pd.to_datetime(history_df["fetched_at_utc"], errors="coerce", utc=True).dt.tz_convert(None)
-    history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(history_df["fetched_at_utc_dt"])
+    history_df = add_history_confidence(history_df)
     history_df["price_spread"] = history_df["max_price"] - history_df["min_price"]
 
     latest_idx = history_df["sort_date"].idxmax()
     latest_bs_date = str(history_df.loc[latest_idx, "scrape_date_bs"])
     latest_sort_date = pd.Timestamp(history_df.loc[latest_idx, "sort_date"]).strftime("%Y-%m-%d")
+    latest_confidence_band = str(history_df.loc[latest_idx, "history_confidence_band"])
 
     latest_df = history_df[history_df["scrape_date_bs"] == latest_bs_date].copy()
     latest_df = latest_df.sort_values("commodity").reset_index(drop=True)
+
+    band_summary_df = confidence_band_summary(history_df)
 
     lines = []
     lines.append("# Kalimati Market Brief")
     lines.append("")
     lines.append(f"- Latest saved BS date: **{latest_bs_date}**")
     lines.append(f"- Latest saved AD date: **{latest_sort_date}**")
+    lines.append(f"- Latest date confidence band: **{latest_confidence_band}**")
     lines.append(f"- Total items: **{len(latest_df)}**")
     lines.append(f"- Average market price: **Rs. {latest_df['avg_price'].mean():.2f}**")
     lines.append("")
+
+    lines.append("## Historical confidence notes")
+    lines.append("")
+    lines.append("- Default stronger modeling window starts at **2015-05-01**.")
+    lines.append("- **2014-11-01 to 2015-04-30** is medium-confidence historical data.")
+    lines.append("- **2013-11-01 to 2014-10-31** is low-confidence historical data and should be used carefully.")
+    lines.append("")
+
+    if not band_summary_df.empty:
+        lines.append("### History rows by confidence band")
+        lines.append("")
+        for _, row in band_summary_df.iterrows():
+            lines.append(f"- {row['history_confidence_band']}: **{int(row['rows'])}** rows")
+        lines.append("")
 
     if not latest_df.empty:
         most_expensive = latest_df.sort_values("avg_price", ascending=False).iloc[0]
@@ -101,14 +119,18 @@ def main():
         lines.append("## Top anomaly watchlist")
         lines.append("")
         for _, row in anomaly_df.sort_values("pct_change_vs_median", ascending=False).head(5).iterrows():
+            confidence_band = row.get("latest_history_confidence_band", "unknown")
             lines.append(
                 f"- Spike: {row['commodity']} ({row['unit']}) | current Rs. {row['current_avg_price']:.2f} | "
-                f"7-day median Rs. {row['baseline_median_7']:.2f} | change {row['pct_change_vs_median']:.2f}%"
+                f"7-day median Rs. {row['baseline_median_7']:.2f} | change {row['pct_change_vs_median']:.2f}% | "
+                f"confidence {confidence_band}"
             )
         for _, row in anomaly_df.sort_values("pct_change_vs_median", ascending=True).head(5).iterrows():
+            confidence_band = row.get("latest_history_confidence_band", "unknown")
             lines.append(
                 f"- Drop: {row['commodity']} ({row['unit']}) | current Rs. {row['current_avg_price']:.2f} | "
-                f"7-day median Rs. {row['baseline_median_7']:.2f} | change {row['pct_change_vs_median']:.2f}%"
+                f"7-day median Rs. {row['baseline_median_7']:.2f} | change {row['pct_change_vs_median']:.2f}% | "
+                f"confidence {confidence_band}"
             )
         lines.append("")
 
@@ -116,14 +138,18 @@ def main():
         lines.append("## Top forecast watchlist")
         lines.append("")
         for _, row in forecast_df.sort_values("forecast_delta_vs_latest", ascending=False).head(5).iterrows():
+            confidence_band = row.get("latest_history_confidence_band", "unknown")
             lines.append(
                 f"- Upward reversion: {row['commodity']} ({row['unit']}) | latest Rs. {row['latest_avg_price']:.2f} | "
-                f"baseline forecast Rs. {row['next_day_forecast']:.2f} | delta {row['forecast_delta_vs_latest']:.2f}"
+                f"baseline forecast Rs. {row['next_day_forecast']:.2f} | delta {row['forecast_delta_vs_latest']:.2f} | "
+                f"confidence {confidence_band}"
             )
         for _, row in forecast_df.sort_values("forecast_delta_vs_latest", ascending=True).head(5).iterrows():
+            confidence_band = row.get("latest_history_confidence_band", "unknown")
             lines.append(
                 f"- Downward reversion: {row['commodity']} ({row['unit']}) | latest Rs. {row['latest_avg_price']:.2f} | "
-                f"baseline forecast Rs. {row['next_day_forecast']:.2f} | delta {row['forecast_delta_vs_latest']:.2f}"
+                f"baseline forecast Rs. {row['next_day_forecast']:.2f} | delta {row['forecast_delta_vs_latest']:.2f} | "
+                f"confidence {confidence_band}"
             )
         lines.append("")
 
@@ -133,6 +159,7 @@ def main():
     print("Output:", OUTPUT_PATH)
     print("Latest BS date:", latest_bs_date)
     print("Latest AD date:", latest_sort_date)
+    print("Latest date confidence band:", latest_confidence_band)
 
 
 if __name__ == "__main__":

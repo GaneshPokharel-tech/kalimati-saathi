@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from analysis.history_confidence import add_history_confidence, confidence_band_summary
+
 DB_PATH = Path("data/processed/kalimati.db")
 HISTORY_CSV = Path("data/processed/kalimati_price_history.csv")
 OUT_PATH = Path("data/processed/data_quality_audit_summary.txt")
@@ -26,10 +28,7 @@ def load_history():
 
 def main():
     df = load_history().copy()
-
-    df["requested_date_ad_dt"] = pd.to_datetime(df["requested_date_ad"], errors="coerce")
-    df["fetched_at_utc_dt"] = pd.to_datetime(df["fetched_at_utc"], errors="coerce", utc=True).dt.tz_convert(None)
-    df["sort_date"] = df["requested_date_ad_dt"].fillna(df["fetched_at_utc_dt"])
+    df = add_history_confidence(df)
 
     duplicate_key = ["scrape_date_bs", "commodity", "unit"]
     duplicate_rows = df[df.duplicated(subset=duplicate_key, keep=False)].copy()
@@ -71,6 +70,8 @@ def main():
         .reset_index(drop=True)
     )
 
+    confidence_summary_df = confidence_band_summary(df)
+
     lines = []
     lines.append("Kalimati Saathi Data Quality Audit")
     lines.append("=" * 60)
@@ -78,6 +79,14 @@ def main():
     lines.append(f"Unique BS dates: {df['scrape_date_bs'].nunique()}")
     lines.append(f"Latest BS date by sort_date: {latest_bs_date}")
     lines.append(f"Rows on latest BS date: {len(latest_df)}")
+    lines.append("")
+
+    lines.append("History confidence summary")
+    lines.append("-" * 60)
+    if len(confidence_summary_df) > 0:
+        lines.append(confidence_summary_df.to_string(index=False))
+    else:
+        lines.append("None")
     lines.append("")
 
     lines.append("Null summary")
@@ -126,6 +135,12 @@ def main():
     print("Duplicate rows:", len(duplicate_rows))
     print("Invalid price rows:", len(invalid_price_rows))
     print("Zero/negative price rows:", len(zero_or_negative_rows))
+    print()
+    print("Confidence summary:")
+    if len(confidence_summary_df) > 0:
+        print(confidence_summary_df.to_string(index=False))
+    else:
+        print("None")
     print()
     print("Null summary:")
     print(null_summary.to_string())

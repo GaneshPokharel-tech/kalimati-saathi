@@ -1,6 +1,8 @@
 import pandas as pd
 from pathlib import Path
 
+from analysis.history_confidence import add_history_confidence
+
 HISTORY_PATH = "data/processed/kalimati_price_history.csv"
 OUTPUT_DIR = Path("data/processed")
 OUTPUT_PATH = OUTPUT_DIR / "kalimati_forecast_baseline.csv"
@@ -8,9 +10,7 @@ OUTPUT_PATH = OUTPUT_DIR / "kalimati_forecast_baseline.csv"
 
 def load_history():
     df = pd.read_csv(HISTORY_PATH).copy()
-    df["requested_date_ad_dt"] = pd.to_datetime(df["requested_date_ad"], errors="coerce")
-    df["fetched_at_utc_dt"] = pd.to_datetime(df["fetched_at_utc"], errors="coerce", utc=True).dt.tz_convert(None)
-    df["sort_date"] = df["requested_date_ad_dt"].fillna(df["fetched_at_utc_dt"])
+    df = add_history_confidence(df)
     df = df.dropna(subset=["commodity", "unit", "avg_price", "sort_date"]).copy()
     df = df.sort_values(["commodity", "unit", "sort_date"]).reset_index(drop=True)
     return df
@@ -48,6 +48,9 @@ def build_forecast(df, lookback=7, min_history=8):
             "next_day_forecast": round(next_day_forecast, 2),
             "forecast_delta_vs_latest": round(next_day_forecast - last_price, 2),
             "history_points": len(group),
+            "latest_history_confidence_band": latest_row["history_confidence_band"],
+            "latest_history_confidence_rank": int(latest_row["history_confidence_rank"]),
+            "latest_is_default_model_window": bool(latest_row["is_default_model_window"]),
         })
 
     forecast_df = pd.DataFrame(rows)
@@ -94,6 +97,7 @@ def main():
                 "next_day_forecast",
                 "forecast_delta_vs_latest",
                 "history_points",
+                "latest_history_confidence_band",
             ]
         ].head(20).to_string(index=False)
     )

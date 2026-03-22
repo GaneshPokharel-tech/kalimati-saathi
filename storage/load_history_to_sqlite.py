@@ -16,6 +16,7 @@ COMMODITY_NORMALIZATION_EXACT_GROUPS_CSV = Path("data/processed/commodity_normal
 COMMODITY_NORMALIZATION_FUZZY_PAIRS_CSV = Path("data/processed/commodity_normalization_fuzzy_pairs.csv")
 DATA_QUALITY_AUDIT_SUMMARY_TXT = Path("data/processed/data_quality_audit_summary.txt")
 BACKFILL_COVERAGE_CSV = Path("data/processed/kalimati_backfill_coverage.csv")
+ROW_DEPTH_POLICY_FLAGS_CSV = Path("data/processed/row_depth_policy_flags.csv")
 
 PIPELINE_STATUS_JSON = Path("data/processed/kalimati_pipeline_status.json")
 SCRAPE_STATUS_JSON = Path("data/processed/kalimati_last_scrape_status.json")
@@ -105,6 +106,7 @@ def main():
             column_name="summary_text",
         )
         backfill_coverage_rows = load_csv_to_table(conn, BACKFILL_COVERAGE_CSV, "kalimati_backfill_coverage")
+        row_depth_policy_flags_rows = load_csv_to_table(conn, ROW_DEPTH_POLICY_FLAGS_CSV, "row_depth_policy_flags")
 
         if history_rows > 0:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_price_history_bs_date ON price_history(scrape_date_bs)")
@@ -122,6 +124,11 @@ def main():
         if backfill_coverage_rows > 0:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_kalimati_backfill_coverage_requested_date ON kalimati_backfill_coverage(requested_date_ad)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_kalimati_backfill_coverage_status ON kalimati_backfill_coverage(status)")
+
+        if row_depth_policy_flags_rows > 0:
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_row_depth_policy_flags_requested_date ON row_depth_policy_flags(requested_date_ad)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_row_depth_policy_flags_band ON row_depth_policy_flags(history_confidence_band)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_row_depth_policy_flags_action ON row_depth_policy_flags(policy_action)")
 
         conn.commit()
 
@@ -143,6 +150,7 @@ def main():
             data_quality_audit_summary_rows,
         )
         print("Backfill coverage table loaded:", backfill_coverage_rows)
+        print("Row-depth policy table loaded:", row_depth_policy_flags_rows)
 
     finally:
         conn.close()
