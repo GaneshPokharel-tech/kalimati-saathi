@@ -19,6 +19,12 @@ def load_history():
 def build_forecast(df, lookback=7, min_history=8):
     rows = []
 
+    latest_live_df = df[df["history_confidence_band"] == "current_live"].copy()
+    if latest_live_df.empty:
+        return pd.DataFrame()
+
+    latest_live_date = latest_live_df["sort_date"].max()
+
     for (commodity, unit), group in df.groupby(["commodity", "unit"], sort=True):
         group = group.sort_values("sort_date").reset_index(drop=True)
 
@@ -26,6 +32,16 @@ def build_forecast(df, lookback=7, min_history=8):
             continue
 
         latest_row = group.iloc[-1]
+
+        if latest_row["sort_date"] != latest_live_date:
+            continue
+
+        if latest_row["history_confidence_band"] != "current_live":
+            continue
+
+        if not bool(latest_row["is_default_model_window"]):
+            continue
+
         history_window = group.iloc[-lookback:].copy()
 
         if len(history_window) < lookback:
