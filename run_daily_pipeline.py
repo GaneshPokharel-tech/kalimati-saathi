@@ -12,11 +12,11 @@ HISTORY_PATH = ROOT / "data/processed/kalimati_price_history.csv"
 
 PRE_STATUS_STEPS = [
     ["scraper/fetch_kalimati_prices.py"],
-    ["analysis/anomaly_report.py"],
-    ["analysis/forecast_baseline.py"],
-    ["analysis/generate_market_brief.py"],
-    ["analysis/commodity_normalization_audit.py"],
-    ["analysis/data_quality_audit.py"],
+    ["-m", "analysis.anomaly_report"],
+    ["-m", "analysis.forecast_baseline"],
+    ["-m", "analysis.generate_market_brief"],
+    ["-m", "analysis.commodity_normalization_audit"],
+    ["-m", "analysis.data_quality_audit"],
 ]
 
 POST_STATUS_STEPS = [
