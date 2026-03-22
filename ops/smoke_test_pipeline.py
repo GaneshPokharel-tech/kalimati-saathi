@@ -16,6 +16,7 @@ COMMODITY_NORMALIZATION_EXACT_GROUPS_CSV = PROCESSED / "commodity_normalization_
 COMMODITY_NORMALIZATION_FUZZY_PAIRS_CSV = PROCESSED / "commodity_normalization_fuzzy_pairs.csv"
 DATA_QUALITY_AUDIT_SUMMARY_TXT = PROCESSED / "data_quality_audit_summary.txt"
 ROW_DEPTH_POLICY_FLAGS_CSV = PROCESSED / "row_depth_policy_flags.csv"
+PRICE_QUALITY_POLICY_FLAGS_CSV = PROCESSED / "price_quality_policy_flags.csv"
 PIPELINE_STATUS_JSON = PROCESSED / "kalimati_pipeline_status.json"
 SCRAPE_STATUS_JSON = PROCESSED / "kalimati_last_scrape_status.json"
 SQLITE_DB = PROCESSED / "kalimati.db"
@@ -56,6 +57,7 @@ def main():
     assert_true(COMMODITY_NORMALIZATION_FUZZY_PAIRS_CSV.exists(), "commodity normalization fuzzy pairs CSV exists")
     assert_true(DATA_QUALITY_AUDIT_SUMMARY_TXT.exists(), "data quality audit summary text exists")
     assert_true(ROW_DEPTH_POLICY_FLAGS_CSV.exists(), "row depth policy flags CSV exists")
+    assert_true(PRICE_QUALITY_POLICY_FLAGS_CSV.exists(), "price quality policy flags CSV exists")
     assert_true(PIPELINE_STATUS_JSON.exists(), "pipeline status JSON exists")
     assert_true(SCRAPE_STATUS_JSON.exists(), "scrape status JSON exists")
     assert_true(SQLITE_DB.exists(), "SQLite DB exists")
@@ -73,6 +75,7 @@ def main():
         "commodity normalization fuzzy pairs CSV",
     )
     row_depth_policy_flags_df = pd.read_csv(ROW_DEPTH_POLICY_FLAGS_CSV)
+    price_quality_policy_flags_df = pd.read_csv(PRICE_QUALITY_POLICY_FLAGS_CSV)
     pipeline_status = load_json(PIPELINE_STATUS_JSON)
     scrape_status = load_json(SCRAPE_STATUS_JSON)
     market_brief_text = MARKET_BRIEF_MD.read_text(encoding="utf-8")
@@ -83,12 +86,13 @@ def main():
     assert_true(len(forecast_df) > 0, "forecast CSV has rows")
     assert_true(len(commodity_name_counts_df) > 0, "commodity name counts CSV has rows")
     assert_true(len(row_depth_policy_flags_df) > 0, "row depth policy flags CSV has rows")
+    assert_true(len(price_quality_policy_flags_df) > 0, "price quality policy flags CSV has rows")
     assert_true("Kalimati Market Brief" in market_brief_text, "market brief has expected title")
     assert_true("Kalimati Saathi Data Quality Audit" in data_quality_audit_summary_text, "data quality audit summary has expected title")
     assert_true("history_rows" in pipeline_status, "pipeline status has history_rows")
     assert_true("status" in scrape_status, "scrape status has status field")
 
-    required_policy_columns = {
+    required_row_depth_policy_columns = {
         "requested_date_ad",
         "scrape_date_bs",
         "row_count",
@@ -99,8 +103,26 @@ def main():
         "policy_action",
     }
     assert_true(
-        required_policy_columns.issubset(set(row_depth_policy_flags_df.columns)),
+        required_row_depth_policy_columns.issubset(set(row_depth_policy_flags_df.columns)),
         "row depth policy flags CSV has required columns",
+    )
+
+    required_price_quality_policy_columns = {
+        "requested_date_ad",
+        "scrape_date_bs",
+        "commodity",
+        "unit",
+        "min_price",
+        "max_price",
+        "avg_price",
+        "price_issue_type",
+        "exclude_from_default_model_window",
+        "manual_review",
+        "policy_action",
+    }
+    assert_true(
+        required_price_quality_policy_columns.issubset(set(price_quality_policy_flags_df.columns)),
+        "price quality policy flags CSV has required columns",
     )
 
     conn = sqlite3.connect(SQLITE_DB)
@@ -120,6 +142,7 @@ def main():
             "scrape_status",
             "market_brief",
             "row_depth_policy_flags",
+            "price_quality_policy_flags",
         }
 
         if len(commodity_normalization_exact_groups_df) > 0:
@@ -135,6 +158,7 @@ def main():
         sqlite_forecast_rows = table_count(conn, "forecast_baseline")
         sqlite_commodity_name_counts_rows = table_count(conn, "commodity_name_counts")
         sqlite_row_depth_policy_flags_rows = table_count(conn, "row_depth_policy_flags")
+        sqlite_price_quality_policy_flags_rows = table_count(conn, "price_quality_policy_flags")
         sqlite_data_quality_audit_summary_rows = table_count(conn, "data_quality_audit_summary")
         sqlite_pipeline_rows = table_count(conn, "pipeline_status")
         sqlite_scrape_rows = table_count(conn, "scrape_status")
@@ -150,6 +174,10 @@ def main():
         assert_true(
             sqlite_row_depth_policy_flags_rows == len(row_depth_policy_flags_df),
             "SQLite row_depth_policy_flags row count matches CSV"
+        )
+        assert_true(
+            sqlite_price_quality_policy_flags_rows == len(price_quality_policy_flags_df),
+            "SQLite price_quality_policy_flags row count matches CSV"
         )
 
         if "commodity_normalization_exact_groups" in tables:
