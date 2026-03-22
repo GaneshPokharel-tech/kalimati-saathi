@@ -313,6 +313,8 @@ history_df["is_safe_default_row"] = (
 )
 
 if scrape_status:
+    with st.expander("Pipeline Status", expanded=False):
+        st.caption("Pipeline run metadata, latest scrape status, and row coverage.")
     st.subheader("Pipeline Status")
 
     status_label_map = {
