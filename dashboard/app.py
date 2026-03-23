@@ -1,3 +1,6 @@
+"""
+Kalimati Saathi — Vegetable price intelligence dashboard for Kalimati market, Nepal.
+"""
 import json
 import sqlite3
 import sys
@@ -7,145 +10,311 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 from analysis.history_confidence import add_history_confidence
 
-st.set_page_config(page_title="Kalimati Saathi", layout="wide")
+# ── Page config ──────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Kalimati Saathi",
+    page_icon="🥦",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
-st.title("Kalimati Saathi")
-st.caption("Kalimati vegetable price intelligence prototype")
+# ── CSS ───────────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-history_csv_path = Path("data/processed/kalimati_price_history.csv")
-anomaly_csv_path = Path("data/processed/kalimati_anomaly_report.csv")
-forecast_csv_path = Path("data/processed/kalimati_forecast_baseline.csv")
-market_brief_path = Path("data/processed/kalimati_market_brief.md")
-row_depth_policy_csv_path = Path("data/processed/row_depth_policy_flags.csv")
-price_quality_policy_csv_path = Path("data/processed/price_quality_policy_flags.csv")
-sqlite_db_path = Path("data/processed/kalimati.db")
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+.stApp { background-color: #0f172a; color: #e2e8f0; }
+.block-container { padding: 1.5rem 2rem; max-width: 1400px; }
 
-pipeline_status_path = Path("data/processed/kalimati_pipeline_status.json")
-scrape_status_path = Path("data/processed/kalimati_last_scrape_status.json")
+[data-testid="metric-container"] {
+    background: linear-gradient(135deg, #1e293b 0%, #1a2744 100%);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1rem 1.2rem !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+[data-testid="metric-container"] [data-testid="metric-label"] {
+    color: #94a3b8 !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+[data-testid="metric-container"] [data-testid="metric-value"] {
+    color: #f1f5f9 !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+}
 
-pipeline_status = {}
-scrape_status = {}
+.stTabs [data-baseweb="tab-list"] {
+    background-color: #1e293b;
+    border-radius: 10px;
+    padding: 4px;
+    gap: 4px;
+}
+.stTabs [data-baseweb="tab"] {
+    background-color: transparent;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #3b82f6, #6366f1) !important;
+    color: #ffffff !important;
+}
+.stTabs [data-baseweb="tab-panel"] { padding-top: 1.5rem; }
+
+h1, h2, h3 { color: #f1f5f9 !important; }
+
+[data-testid="stExpander"] {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+}
+
+[data-testid="stSidebar"] {
+    background-color: #1e293b;
+    border-right: 1px solid #334155;
+}
+hr { border-color: #334155; }
+
+[data-testid="stDownloadButton"] button {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    border-radius: 8px;
+}
+[data-testid="stDownloadButton"] button:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+HISTORY_CSV = PROJECT_ROOT / "data/processed/kalimati_price_history.csv"
+ANOMALY_CSV = PROJECT_ROOT / "data/processed/kalimati_anomaly_report.csv"
+FORECAST_CSV = PROJECT_ROOT / "data/processed/kalimati_forecast_baseline.csv"
+MARKET_BRIEF_MD = PROJECT_ROOT / "data/processed/kalimati_market_brief.md"
+ROW_DEPTH_CSV = PROJECT_ROOT / "data/processed/row_depth_policy_flags.csv"
+PRICE_QUALITY_CSV = PROJECT_ROOT / "data/processed/price_quality_policy_flags.csv"
+SQLITE_DB = PROJECT_ROOT / "data/processed/kalimati.db"
+PIPELINE_STATUS_JSON = PROJECT_ROOT / "data/processed/kalimati_pipeline_status.json"
+SCRAPE_STATUS_JSON = PROJECT_ROOT / "data/processed/kalimati_last_scrape_status.json"
+
+_ALLOWED_TABLES = {
+    "price_history",
+    "anomaly_report",
+    "forecast_baseline",
+    "market_brief",
+    "pipeline_status",
+    "scrape_status",
+    "row_depth_policy_flags",
+    "price_quality_policy_flags",
+}
+
+# ── Data helpers ──────────────────────────────────────────────────────────────
 
 
-def load_table_from_sqlite(table_name):
-    if not sqlite_db_path.exists():
+def _sqlite_table(table_name: str) -> pd.DataFrame:
+    if table_name not in _ALLOWED_TABLES or not SQLITE_DB.exists():
         return pd.DataFrame()
-
-    conn = sqlite3.connect(sqlite_db_path)
+    conn = sqlite3.connect(SQLITE_DB)
     try:
-        return pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        return pd.read_sql_query(f"SELECT * FROM {table_name}", conn)  # noqa: S608
     except Exception:
         return pd.DataFrame()
     finally:
         conn.close()
 
 
-
-def load_table_with_csv_fallback(table_name, csv_path):
-    df = load_table_from_sqlite(table_name)
+def _load_with_fallback(table_name: str, csv_path: Path) -> pd.DataFrame:
+    df = _sqlite_table(table_name)
     if not df.empty:
-        return df, "SQLite"
-
+        return df
     if csv_path.exists():
-        return pd.read_csv(csv_path).copy(), "CSV"
-
-    return pd.DataFrame(), "None"
-
-
-def load_single_row_json_table(table_name):
-    df = load_table_from_sqlite(table_name)
-    if not df.empty:
-        return df.iloc[0].to_dict(), "SQLite"
-    return {}, "None"
+        try:
+            return pd.read_csv(csv_path)
+        except pd.errors.EmptyDataError:
+            pass
+    return pd.DataFrame()
 
 
-def load_history():
-    return load_table_with_csv_fallback("price_history", history_csv_path)
+@st.cache_data(ttl=300)
+def load_history() -> pd.DataFrame:
+    return _load_with_fallback("price_history", HISTORY_CSV)
 
 
-def load_anomaly():
-    return load_table_with_csv_fallback("anomaly_report", anomaly_csv_path)
+@st.cache_data(ttl=300)
+def load_anomaly() -> pd.DataFrame:
+    return _load_with_fallback("anomaly_report", ANOMALY_CSV)
 
 
-def load_forecast():
-    return load_table_with_csv_fallback("forecast_baseline", forecast_csv_path)
+@st.cache_data(ttl=300)
+def load_forecast() -> pd.DataFrame:
+    return _load_with_fallback("forecast_baseline", FORECAST_CSV)
 
 
-def load_row_depth_policy():
-    return load_table_with_csv_fallback("row_depth_policy_flags", row_depth_policy_csv_path)
+@st.cache_data(ttl=300)
+def load_row_depth() -> pd.DataFrame:
+    return _load_with_fallback("row_depth_policy_flags", ROW_DEPTH_CSV)
 
 
-def load_price_quality_policy():
-    return load_table_with_csv_fallback("price_quality_policy_flags", price_quality_policy_csv_path)
+@st.cache_data(ttl=300)
+def load_price_quality() -> pd.DataFrame:
+    return _load_with_fallback("price_quality_policy_flags", PRICE_QUALITY_CSV)
 
 
-def load_market_brief():
-    df = load_table_from_sqlite("market_brief")
+@st.cache_data(ttl=300)
+def load_market_brief() -> str:
+    df = _sqlite_table("market_brief")
     if not df.empty and "brief_markdown" in df.columns:
-        return str(df.iloc[0]["brief_markdown"]), "SQLite"
-
-    if market_brief_path.exists():
-        return market_brief_path.read_text(encoding="utf-8"), "Markdown"
-
-    return "", "None"
+        return str(df.iloc[0]["brief_markdown"])
+    if MARKET_BRIEF_MD.exists():
+        return MARKET_BRIEF_MD.read_text(encoding="utf-8")
+    return ""
 
 
-def to_csv_bytes(df):
+@st.cache_data(ttl=300)
+def load_pipeline_status() -> dict:
+    df = _sqlite_table("pipeline_status")
+    if not df.empty:
+        return df.iloc[0].to_dict()
+    if PIPELINE_STATUS_JSON.exists():
+        return json.loads(PIPELINE_STATUS_JSON.read_text(encoding="utf-8"))
+    return {}
+
+
+@st.cache_data(ttl=300)
+def load_scrape_status() -> dict:
+    df = _sqlite_table("scrape_status")
+    if not df.empty:
+        return df.iloc[0].to_dict()
+    if SCRAPE_STATUS_JSON.exists():
+        return json.loads(SCRAPE_STATUS_JSON.read_text(encoding="utf-8"))
+    return {}
+
+
+def normalize_bool(series: pd.Series) -> pd.Series:
+    if getattr(series, "dtype", None) == bool:
+        return series.fillna(False)
+    return (
+        series.astype("string").fillna("").str.strip().str.lower().isin(["true", "1", "yes"])
+    )
+
+
+def to_csv_bytes(df: pd.DataFrame) -> bytes:
     return df.to_csv(index=False).encode("utf-8-sig")
 
 
-def normalize_bool_series(series):
-    if getattr(series, "dtype", None) == bool:
-        return series.fillna(False)
-    normalized = series.astype("string").fillna("").str.strip().str.lower()
-    return normalized.isin(["true", "1", "yes"])
+def kpi_card(label: str, value: str, color: str = "#3b82f6") -> str:
+    return f"""
+    <div style="background:linear-gradient(135deg,#1e293b,#1a2744);
+                border:1px solid #334155;border-radius:12px;padding:1.2rem 1.4rem;
+                border-top:3px solid {color};margin-bottom:0.5rem;">
+        <div style="color:#94a3b8;font-size:0.7rem;text-transform:uppercase;
+                    letter-spacing:0.08em;font-weight:600;margin-bottom:0.4rem;">{label}</div>
+        <div style="color:#f1f5f9;font-size:1.6rem;font-weight:700;line-height:1.2;">{value}</div>
+    </div>"""
 
 
-def enrich_watchlist_df(watchlist_df, row_depth_policy_df, price_quality_policy_df):
-    watchlist_df = watchlist_df.copy()
-    if watchlist_df.empty:
-        return watchlist_df
+_CHART_CFG = dict(
+    gridColor="#334155",
+    labelColor="#94a3b8",
+    titleColor="#94a3b8",
+    domainColor="#334155",
+)
 
-    if "latest_is_default_model_window" in watchlist_df.columns:
-        watchlist_df["latest_is_default_model_window"] = normalize_bool_series(
-            watchlist_df["latest_is_default_model_window"]
-        )
-    else:
-        watchlist_df["latest_is_default_model_window"] = False
+# ── Load all data ─────────────────────────────────────────────────────────────
+raw_history = load_history()
+if raw_history.empty:
+    st.error("No price history found. Run the daily pipeline first.")
+    st.stop()
 
-    if not row_depth_policy_df.empty:
-        row_depth_watch = row_depth_policy_df[
+pipeline_status = load_pipeline_status()
+scrape_status = load_scrape_status()
+anomaly_df = load_anomaly()
+forecast_df = load_forecast()
+row_depth_df = load_row_depth()
+price_quality_df = load_price_quality()
+market_brief = load_market_brief()
+
+# ── Enrich history ────────────────────────────────────────────────────────────
+history_df = raw_history.copy()
+history_df["requested_date_ad_dt"] = pd.to_datetime(
+    history_df.get("requested_date_ad"), errors="coerce"
+)
+if "fetched_at_utc" in history_df.columns:
+    history_df["fetched_at_utc_dt"] = pd.to_datetime(
+        history_df["fetched_at_utc"], errors="coerce", utc=True
+    ).dt.tz_convert(None)
+else:
+    history_df["fetched_at_utc_dt"] = pd.NaT
+history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(
+    history_df["fetched_at_utc_dt"]
+)
+history_df["price_spread"] = history_df["max_price"] - history_df["min_price"]
+
+if "history_confidence_band" not in history_df.columns:
+    history_df = add_history_confidence(history_df)
+
+# Merge row-depth policy flags
+if not row_depth_df.empty:
+    rd_join = (
+        row_depth_df[
             [
+                "requested_date_ad",
                 "scrape_date_bs",
+                "row_count",
                 "row_depth_severity",
                 "exclude_from_default_model_window",
                 "manual_review",
                 "policy_action",
             ]
-        ].drop_duplicates().rename(
+        ]
+        .drop_duplicates()
+        .rename(
             columns={
-                "scrape_date_bs": "latest_bs_date",
-                "row_depth_severity": "latest_row_depth_flag",
-                "exclude_from_default_model_window": "latest_row_depth_excluded",
-                "manual_review": "latest_row_depth_manual_review",
-                "policy_action": "latest_row_depth_policy_action",
+                "row_count": "row_depth_row_count",
+                "row_depth_severity": "row_depth_flag",
+                "exclude_from_default_model_window": "row_depth_excluded",
+                "manual_review": "row_depth_manual_review",
+                "policy_action": "row_depth_policy_action",
             }
         )
-        watchlist_df = watchlist_df.merge(row_depth_watch, on="latest_bs_date", how="left")
-    else:
-        watchlist_df["latest_row_depth_flag"] = pd.NA
-        watchlist_df["latest_row_depth_excluded"] = False
-        watchlist_df["latest_row_depth_manual_review"] = False
-        watchlist_df["latest_row_depth_policy_action"] = pd.NA
+    )
+    history_df = history_df.merge(
+        rd_join, on=["requested_date_ad", "scrape_date_bs"], how="left"
+    )
+else:
+    for c in [
+        "row_depth_row_count",
+        "row_depth_flag",
+        "row_depth_excluded",
+        "row_depth_manual_review",
+        "row_depth_policy_action",
+    ]:
+        history_df[c] = pd.NA
 
-    if not price_quality_policy_df.empty:
-        price_quality_watch = price_quality_policy_df[
+# Merge price-quality policy flags
+if not price_quality_df.empty:
+    pq_join = (
+        price_quality_df[
             [
+                "requested_date_ad",
                 "scrape_date_bs",
                 "commodity",
                 "unit",
@@ -154,722 +323,755 @@ def enrich_watchlist_df(watchlist_df, row_depth_policy_df, price_quality_policy_
                 "manual_review",
                 "policy_action",
             ]
-        ].drop_duplicates().rename(
+        ]
+        .drop_duplicates()
+        .rename(
             columns={
-                "scrape_date_bs": "latest_bs_date",
-                "price_issue_type": "latest_price_quality_flag",
-                "exclude_from_default_model_window": "latest_price_quality_excluded",
-                "manual_review": "latest_price_quality_manual_review",
-                "policy_action": "latest_price_quality_policy_action",
+                "price_issue_type": "price_quality_flag",
+                "exclude_from_default_model_window": "price_quality_excluded",
+                "manual_review": "price_quality_manual_review",
+                "policy_action": "price_quality_policy_action",
             }
         )
-        watchlist_df = watchlist_df.merge(
-            price_quality_watch,
-            on=["latest_bs_date", "commodity", "unit"],
-            how="left",
-        )
-    else:
-        watchlist_df["latest_price_quality_flag"] = pd.NA
-        watchlist_df["latest_price_quality_excluded"] = False
-        watchlist_df["latest_price_quality_manual_review"] = False
-        watchlist_df["latest_price_quality_policy_action"] = pd.NA
-
-    watchlist_df["latest_row_depth_excluded"] = normalize_bool_series(
-        watchlist_df["latest_row_depth_excluded"]
-    )
-    watchlist_df["latest_row_depth_manual_review"] = normalize_bool_series(
-        watchlist_df["latest_row_depth_manual_review"]
-    )
-    watchlist_df["latest_price_quality_excluded"] = normalize_bool_series(
-        watchlist_df["latest_price_quality_excluded"]
-    )
-    watchlist_df["latest_price_quality_manual_review"] = normalize_bool_series(
-        watchlist_df["latest_price_quality_manual_review"]
-    )
-
-    watchlist_df["latest_policy_manual_review"] = (
-        watchlist_df["latest_row_depth_manual_review"]
-        | watchlist_df["latest_price_quality_manual_review"]
-    )
-    watchlist_df["latest_is_policy_excluded_from_default_model_window"] = (
-        watchlist_df["latest_row_depth_excluded"]
-        | watchlist_df["latest_price_quality_excluded"]
-    )
-    watchlist_df["latest_is_safe_default_row"] = (
-        watchlist_df["latest_is_default_model_window"]
-        & ~watchlist_df["latest_is_policy_excluded_from_default_model_window"]
-    )
-
-    return watchlist_df
-
-
-pipeline_status, pipeline_status_source = load_single_row_json_table("pipeline_status")
-scrape_status, scrape_status_source = load_single_row_json_table("scrape_status")
-
-if not pipeline_status and pipeline_status_path.exists():
-    pipeline_status = json.loads(pipeline_status_path.read_text(encoding="utf-8"))
-    pipeline_status_source = "JSON"
-
-if not scrape_status and scrape_status_path.exists():
-    scrape_status = json.loads(scrape_status_path.read_text(encoding="utf-8"))
-    scrape_status_source = "JSON"
-
-history_df, history_source = load_history()
-anomaly_df, anomaly_source = load_anomaly()
-forecast_df, forecast_source = load_forecast()
-row_depth_policy_df, row_depth_policy_source = load_row_depth_policy()
-price_quality_policy_df, price_quality_policy_source = load_price_quality_policy()
-market_brief_content, market_brief_source = load_market_brief()
-
-if history_df.empty:
-    st.error("No history data found. Run the daily pipeline first.")
-    st.stop()
-
-history_df["price_spread"] = history_df["max_price"] - history_df["min_price"]
-history_df["requested_date_ad_dt"] = pd.to_datetime(history_df["requested_date_ad"], errors="coerce")
-history_df["fetched_at_utc_dt"] = pd.to_datetime(history_df["fetched_at_utc"], errors="coerce").dt.tz_convert(None)
-history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(history_df["fetched_at_utc_dt"])
-
-if "history_confidence_band" not in history_df.columns:
-    history_df = add_history_confidence(history_df)
-
-if not row_depth_policy_df.empty:
-    row_depth_join_df = row_depth_policy_df[
-        [
-            "requested_date_ad",
-            "scrape_date_bs",
-            "row_count",
-            "row_depth_severity",
-            "exclude_from_default_model_window",
-            "manual_review",
-            "policy_action",
-        ]
-    ].drop_duplicates().rename(
-        columns={
-            "row_count": "row_depth_row_count",
-            "row_depth_severity": "row_depth_flag",
-            "exclude_from_default_model_window": "row_depth_excluded",
-            "manual_review": "row_depth_manual_review",
-            "policy_action": "row_depth_policy_action",
-        }
     )
     history_df = history_df.merge(
-        row_depth_join_df,
-        on=["requested_date_ad", "scrape_date_bs"],
-        how="left",
-    )
-else:
-    history_df["row_depth_row_count"] = pd.NA
-    history_df["row_depth_flag"] = pd.NA
-    history_df["row_depth_excluded"] = False
-    history_df["row_depth_manual_review"] = False
-    history_df["row_depth_policy_action"] = pd.NA
-
-if not price_quality_policy_df.empty:
-    price_quality_join_df = price_quality_policy_df[
-        [
-            "requested_date_ad",
-            "scrape_date_bs",
-            "commodity",
-            "unit",
-            "price_issue_type",
-            "exclude_from_default_model_window",
-            "manual_review",
-            "policy_action",
-        ]
-    ].drop_duplicates().rename(
-        columns={
-            "price_issue_type": "price_quality_flag",
-            "exclude_from_default_model_window": "price_quality_excluded",
-            "manual_review": "price_quality_manual_review",
-            "policy_action": "price_quality_policy_action",
-        }
-    )
-    history_df = history_df.merge(
-        price_quality_join_df,
+        pq_join,
         on=["requested_date_ad", "scrape_date_bs", "commodity", "unit"],
         how="left",
     )
 else:
-    history_df["price_quality_flag"] = pd.NA
-    history_df["price_quality_excluded"] = False
-    history_df["price_quality_manual_review"] = False
-    history_df["price_quality_policy_action"] = pd.NA
+    for c in [
+        "price_quality_flag",
+        "price_quality_excluded",
+        "price_quality_manual_review",
+        "price_quality_policy_action",
+    ]:
+        history_df[c] = pd.NA
 
-history_df["row_depth_excluded"] = normalize_bool_series(history_df["row_depth_excluded"])
-history_df["row_depth_manual_review"] = normalize_bool_series(history_df["row_depth_manual_review"])
-history_df["price_quality_excluded"] = normalize_bool_series(history_df["price_quality_excluded"])
-history_df["price_quality_manual_review"] = normalize_bool_series(history_df["price_quality_manual_review"])
+for col in [
+    "row_depth_excluded",
+    "row_depth_manual_review",
+    "price_quality_excluded",
+    "price_quality_manual_review",
+]:
+    history_df[col] = normalize_bool(history_df[col])
 
 history_df["policy_manual_review"] = (
     history_df["row_depth_manual_review"] | history_df["price_quality_manual_review"]
 )
-history_df["is_policy_excluded_from_default_model_window"] = (
+history_df["is_policy_excluded"] = (
     history_df["row_depth_excluded"] | history_df["price_quality_excluded"]
 )
-history_df["is_safe_default_row"] = (
-    normalize_bool_series(history_df["is_default_model_window"])
-    & ~history_df["is_policy_excluded_from_default_model_window"]
-)
+history_df["is_safe_default_row"] = normalize_bool(
+    history_df.get("is_default_model_window", pd.Series(False, index=history_df.index))
+) & ~history_df["is_policy_excluded"]
 
-if scrape_status:
-    with st.expander("Pipeline Status", expanded=False):
-        st.caption("Pipeline run metadata, latest scrape status, and row coverage.")
-    st.subheader("Pipeline Status")
-
-    status_label_map = {
-        "saved": "Saved",
-        "no_data": "No data returned",
-    }
-    display_status = status_label_map.get(scrape_status.get("status"), scrape_status.get("status", "unknown"))
-
-    s1, s2, s3, s4, s5 = st.columns(5)
-    s1.metric("Last scrape status", display_status)
-    s2.metric("Last returned BS date", scrape_status.get("returned_bs_date") or "N/A")
-    s3.metric("Last scrape row count", scrape_status.get("row_count", 0))
-    s4.metric("History rows", pipeline_status.get("history_rows", len(history_df)))
-    s5.metric("History source", history_source)
-
-    st.caption(
-        f"Last scrape ran at: {scrape_status.get('scrape_ran_at_utc', 'N/A')} | "
-        f"Requested mode: {scrape_status.get('requested_mode', 'N/A')} | "
-        f"Latest saved history BS date: {pipeline_status.get('latest_history_bs_date', 'N/A')} | "
-        f"Latest saved history AD date: {pipeline_status.get('latest_history_ad_date', 'N/A')} | "
-        f"Anomaly source: {anomaly_source} | Forecast source: {forecast_source} | "
-        f"Pipeline status source: {pipeline_status_source} | Scrape status source: {scrape_status_source}"
-    )
-
-    if scrape_status.get("status") == "no_data":
-        st.warning(
-            "Latest scrape returned no table rows. Dashboard charts below are based on the most recent saved history date, not necessarily the latest page label."
-        )
-    elif scrape_status.get("status") == "saved":
-        st.success("Latest scrape saved successfully.")
-else:
-    st.info("Scrape status file not found yet. Run the daily pipeline first.")
-
-if market_brief_content:
-    st.subheader("Latest Market Brief")
-    st.caption(f"Market brief source: {market_brief_source}")
-    with st.expander("Open latest market brief", expanded=False):
-        st.markdown(market_brief_content)
-else:
-    st.info("Market brief not found. Run the daily pipeline first.")
-
-
-st.caption(
-    f"Trust layer sources: confidence=helper | "
-    f"row-depth policy={row_depth_policy_source} ({len(row_depth_policy_df):,} rows) | "
-    f"price-quality policy={price_quality_policy_source} ({len(price_quality_policy_df):,} rows)"
-)
-
-date_order_df = (
+# Date ordering
+date_order = (
     history_df.groupby("scrape_date_bs", as_index=False)["sort_date"]
     .max()
     .sort_values("sort_date")
     .reset_index(drop=True)
 )
-
-available_dates = date_order_df["scrape_date_bs"].tolist()
-
-latest_saved_bs_date = pipeline_status.get("latest_history_bs_date")
-if not latest_saved_bs_date and available_dates:
-    latest_saved_bs_date = available_dates[-1]
-
-latest_scrape_bs_date = (
-    scrape_status.get("returned_bs_date")
-    or scrape_status.get("scrape_date_bs")
-    or scrape_status.get("latest_bs_date")
+available_dates = date_order["scrape_date_bs"].tolist()
+latest_bs = pipeline_status.get("latest_history_bs_date") or (
+    available_dates[-1] if available_dates else ""
 )
 
-latest_scrape_rows = scrape_status.get("today_rows")
-if latest_scrape_rows is None:
-    latest_scrape_rows = scrape_status.get("rows_fetched_today")
-if latest_scrape_rows is None:
-    latest_scrape_rows = scrape_status.get("rows")
+# ── Hero header ───────────────────────────────────────────────────────────────
+_status = scrape_status.get("status", "unknown")
+_status_dot = "🟢" if _status == "saved" else "🟡"
+_scrape_rows = scrape_status.get("row_count", 0)
 
-history_not_modified = False
-if "history_file_modified" in scrape_status:
-    history_not_modified = scrape_status.get("history_file_modified") is False
-elif "history_modified" in scrape_status:
-    history_not_modified = scrape_status.get("history_modified") is False
-elif "history_updated" in scrape_status:
-    history_not_modified = scrape_status.get("history_updated") is False
-
-if latest_scrape_rows == 0 or (
-    history_not_modified
-    and latest_scrape_bs_date
-    and latest_saved_bs_date
-    and latest_scrape_bs_date != latest_saved_bs_date
-):
-    if latest_scrape_bs_date and latest_saved_bs_date and latest_scrape_bs_date != latest_saved_bs_date:
-        st.warning(
-            f"Latest scrape returned no usable rows for {latest_scrape_bs_date}. Showing last saved market date: {latest_saved_bs_date}."
-        )
-    else:
-        st.warning(
-            f"Latest scrape returned no usable rows. Showing last saved market date: {latest_saved_bs_date}."
-        )
-
-st.divider()
-st.header("Selected Date Explorer")
-st.caption(
-    "यो भाग selected market date मा आधारित छ. Trend vs Previous Date ले calendar previous day होइन, selected date भन्दा अघिल्लो available data date सँग compare गर्छ."
+st.markdown(
+    f"""
+<div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);
+            border:1px solid #334155;border-radius:16px;padding:1.5rem 2rem;
+            margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">
+    <div>
+        <div style="font-size:1.8rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.03em;">
+            🥦 Kalimati Saathi
+        </div>
+        <div style="color:#94a3b8;font-size:0.9rem;margin-top:4px;">
+            Kalimati vegetable market · Price intelligence for Nepal
+        </div>
+    </div>
+    <div style="text-align:right;">
+        <div style="color:#94a3b8;font-size:0.72rem;text-transform:uppercase;
+                    letter-spacing:0.08em;">Latest Market Date</div>
+        <div style="color:#38bdf8;font-size:1.4rem;font-weight:700;">{latest_bs}</div>
+        <div style="color:#64748b;font-size:0.75rem;margin-top:4px;">
+            {_status_dot} {_scrape_rows} items · {_status}
+        </div>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
 )
 
-selected_date = st.selectbox("Select market date", available_dates, index=len(available_dates) - 1)
-latest_saved_bs_date = pipeline_status.get("latest_history_bs_date") or available_dates[-1]
-
-view_mode = st.radio(
-    "History view",
-    ["Safe default window", "Full raw history"],
-    horizontal=True,
-    help="Safe default window prefers the default model window and excludes policy-flagged rows. Full raw history keeps all rows visible for audit.",
-)
-
-selected_raw_df = history_df[history_df["scrape_date_bs"] == selected_date].copy()
-
-if view_mode == "Safe default window":
-    selected_df = selected_raw_df[selected_raw_df["is_safe_default_row"]].copy()
-else:
-    selected_df = selected_raw_df.copy()
-
-selected_df = selected_df.sort_values(["commodity", "unit"]).reset_index(drop=True)
-
-st.caption(
-    f"Selected date view: showing {len(selected_df):,} of {len(selected_raw_df):,} rows | "
-    f"policy-excluded rows on this date: {int(selected_raw_df['is_policy_excluded_from_default_model_window'].sum())} | "
-    f"manual-review rows on this date: {int(selected_raw_df['policy_manual_review'].sum())}"
-)
-
-if selected_df.empty and len(selected_raw_df) > 0 and view_mode == "Safe default window":
-    st.warning("No rows remain in the safe default window for this date. Switch to Full raw history to inspect all rows.")
-
-if len(selected_raw_df) > 0:
-    st.subheader("Trust Summary")
-    confidence_counts = (
-        selected_raw_df["history_confidence_band"]
-        .fillna("unknown")
-        .value_counts()
-        .to_dict()
+if _status == "no_data":
+    st.warning(
+        f"Latest scrape returned no data. Dashboard shows last saved date: **{latest_bs}**"
     )
-    confidence_summary = ", ".join([f"{k}: {v}" for k, v in confidence_counts.items()]) if confidence_counts else "none"
 
-    t1, t2, t3, t4 = st.columns(4)
-    t1.metric("Visible rows", len(selected_df))
-    t2.metric("Default window rows", int(normalize_bool_series(selected_raw_df["is_default_model_window"]).sum()))
-    t3.metric("Policy-excluded rows", int(selected_raw_df["is_policy_excluded_from_default_model_window"].sum()))
-    t4.metric("Manual-review rows", int(selected_raw_df["policy_manual_review"].sum()))
+# ── KPI row ───────────────────────────────────────────────────────────────────
+_latest_snap = history_df[history_df["scrape_date_bs"] == latest_bs]
+_kc = st.columns(5)
+_kc[0].markdown(
+    kpi_card("History Rows", f"{len(history_df):,}", "#3b82f6"), unsafe_allow_html=True
+)
+_kc[1].markdown(kpi_card("Latest Date", str(latest_bs), "#8b5cf6"), unsafe_allow_html=True)
+_kc[2].markdown(
+    kpi_card("Items (Latest Date)", f"{len(_latest_snap):,}", "#06b6d4"),
+    unsafe_allow_html=True,
+)
+_kc[3].markdown(
+    kpi_card("Forecast Series", f"{len(forecast_df):,}", "#f59e0b"), unsafe_allow_html=True
+)
+_kc[4].markdown(
+    kpi_card("Anomaly Signals", f"{len(anomaly_df):,}", "#ef4444"), unsafe_allow_html=True
+)
 
-    st.caption(f"Confidence bands on selected date: {confidence_summary}")
+st.markdown("<br>", unsafe_allow_html=True)
 
-st.subheader("Market Overview")
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Total Items", len(selected_df))
-col2.metric("Average Price", round(selected_df["avg_price"].mean(), 2))
-col3.metric("Highest Avg Price", round(selected_df["avg_price"].max(), 2))
-
-st.subheader("Filters")
-
-units = ["All"] + sorted(selected_df["unit"].dropna().unique().tolist())
-selected_unit = st.selectbox("Select unit", units)
-
-search_text = st.text_input("Search commodity", "")
-
-filtered_df = selected_df.copy()
-
-if selected_unit != "All":
-    filtered_df = filtered_df[filtered_df["unit"] == selected_unit]
-
-if search_text.strip():
-    filtered_df = filtered_df[
-        filtered_df["commodity"].str.contains(search_text.strip(), case=False, na=False)
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab_overview, tab_explorer, tab_anomaly, tab_forecast, tab_trends, tab_quality = st.tabs(
+    [
+        "📊 Overview",
+        "🔍 Price Explorer",
+        "⚠️ Anomaly Watchlist",
+        "📈 Forecast",
+        "📉 Commodity Trends",
+        "🛡 Data Quality",
     ]
+)
 
-filtered_df = filtered_df.sort_values("commodity").reset_index(drop=True)
+# =============================================================================
+# TAB 1 · OVERVIEW
+# =============================================================================
+with tab_overview:
+    if market_brief:
+        with st.expander("📄 Latest Market Brief", expanded=True):
+            st.markdown(market_brief)
 
-st.subheader("Usable Daily Insights")
-
-if len(filtered_df) > 0:
-    most_expensive = filtered_df.sort_values("avg_price", ascending=False).iloc[0]
-    cheapest = filtered_df.sort_values("avg_price", ascending=True).iloc[0]
-    widest_spread = filtered_df.sort_values("price_spread", ascending=False).iloc[0]
-
-    st.write(f"Most expensive item: **{most_expensive['commodity']}** ({most_expensive['unit']}) at average price **Rs. {most_expensive['avg_price']:.2f}**")
-    st.write(f"Cheapest item: **{cheapest['commodity']}** ({cheapest['unit']}) at average price **Rs. {cheapest['avg_price']:.2f}**")
-    st.write(f"Highest price spread: **{widest_spread['commodity']}** with spread **Rs. {widest_spread['price_spread']:.2f}**")
-else:
-    st.warning("No rows matched your filter.")
-
-if len(date_order_df) >= 2:
-    selected_idx = date_order_df.index[date_order_df["scrape_date_bs"] == selected_date][0]
-
-    if selected_idx > 0:
-        previous_date = date_order_df.iloc[selected_idx - 1]["scrape_date_bs"]
-
-        previous_df = (
-            history_df[history_df["scrape_date_bs"] == previous_date][["commodity", "unit", "avg_price"]]
-            .rename(columns={"avg_price": "previous_avg_price"})
-            .copy()
-        )
-
-        current_df = (
-            selected_df[["commodity", "unit", "avg_price"]]
-            .rename(columns={"avg_price": "current_avg_price"})
-            .copy()
-        )
-
-        compare_df = current_df.merge(
-            previous_df,
-            on=["commodity", "unit"],
-            how="inner",
-        )
-
-        compare_df["price_change"] = (
-            compare_df["current_avg_price"] - compare_df["previous_avg_price"]
-        )
-
-        st.subheader(f"Trend vs Previous Date ({previous_date})")
-        st.caption("यो compare selected date भन्दा अघिल्लो available data date सँग हो, calendar previous day सँग होइन.")
-        c1, c2 = st.columns(2)
-
-        display_cols = [
-            "commodity",
-            "unit",
-            "previous_avg_price",
-            "current_avg_price",
-            "price_change",
-        ]
-
-        with c1:
-            st.write("Top Price Increases")
-            top_up_df = compare_df.sort_values("price_change", ascending=False).head(10)
-            st.dataframe(top_up_df[display_cols], width="stretch")
-
-        with c2:
-            st.write("Top Price Decreases")
-            top_down_df = compare_df.sort_values("price_change", ascending=True).head(10)
-            st.dataframe(top_down_df[display_cols], width="stretch")
-
-with st.expander("Detailed Selected Date Data", expanded=False):
-    st.caption("यो भागमा filtered daily table, CSV export, र selected-date charts छन्.")
-
-    st.subheader("Filtered Daily Price Table")
-
-    if len(filtered_df) > 0:
-        st.download_button(
-            "Download filtered daily CSV",
-            data=to_csv_bytes(filtered_df),
-            file_name=f"kalimati_filtered_daily_{selected_date}.csv",
-            mime="text/csv",
-        )
-
-    table_display_cols = [
-        "commodity",
-        "unit",
-        "min_price",
-        "max_price",
-        "avg_price",
-        "price_spread",
-        "history_confidence_band",
-        "is_default_model_window",
-        "is_policy_excluded_from_default_model_window",
-        "row_depth_flag",
-        "price_quality_flag",
-        "policy_manual_review",
-    ]
-
-    table_display_cols = [col for col in table_display_cols if col in filtered_df.columns]
-
-    st.dataframe(filtered_df[table_display_cols], width="stretch")
-
-    if len(filtered_df) > 0:
-        st.subheader("Top 15 by Average Price")
-        chart_df = filtered_df.sort_values("avg_price", ascending=False).head(15).copy()
-        chart_df["item_label"] = (
-            chart_df["commodity"].fillna("").astype(str)
+    st.subheader("Top 10 Commodities by Average Price")
+    top10 = _latest_snap.dropna(subset=["avg_price"]).nlargest(10, "avg_price").copy()
+    if not top10.empty:
+        top10["label"] = (
+            top10["commodity"].astype(str)
             + " ("
-            + chart_df["unit"].fillna("N/A").astype(str)
+            + top10["unit"].fillna("").astype(str)
             + ")"
         )
-        st.bar_chart(chart_df.set_index("item_label")["avg_price"])
+        chart_top10 = (
+            alt.Chart(top10)
+            .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+            .encode(
+                x=alt.X("avg_price:Q", title="Average Price (Rs.)"),
+                y=alt.Y("label:N", sort="-x", title=""),
+                color=alt.Color(
+                    "avg_price:Q", scale=alt.Scale(scheme="blues"), legend=None
+                ),
+                tooltip=[
+                    "commodity:N",
+                    "unit:N",
+                    "min_price:Q",
+                    "max_price:Q",
+                    "avg_price:Q",
+                ],
+            )
+            .properties(height=300)
+            .configure_view(strokeWidth=0)
+            .configure_axis(**_CHART_CFG)
+        )
+        st.altair_chart(chart_top10, use_container_width=True)
+    else:
+        st.info("No price data for the latest date.")
 
-        st.subheader("Top 10 Widest Price Spread")
-        spread_df = filtered_df.sort_values("price_spread", ascending=False)[
-            ["commodity", "unit", "min_price", "max_price", "price_spread"]
-        ].head(10)
-        st.dataframe(spread_df, width="stretch")
-
-    st.divider()
-    st.header("Commodity History")
-    st.caption("यो भाग commodity + unit specific history का लागि हो. Trend chart selected commodity/unit को पुरानो usable history देखाउँछ.")
-    st.subheader("Commodity Price Trend")
-
-trend_source_df = filtered_df.copy()
-trend_source_df = trend_source_df.dropna(subset=["commodity"])
-
-if len(trend_source_df) > 0:
-    trend_source_df["commodity_key"] = (
-        trend_source_df["commodity"].fillna("").astype(str)
-        + " ("
-        + trend_source_df["unit"].fillna("N/A").astype(str)
-        + ")"
+    st.subheader("Pipeline Status")
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    sc1.metric("Last Scrape Status", (_status or "N/A").upper())
+    sc2.metric("Returned BS Date", scrape_status.get("returned_bs_date") or "N/A")
+    sc3.metric(
+        "History Rows", f"{pipeline_status.get('history_rows', len(history_df)):,}"
+    )
+    sc4.metric("Latest AD Date", pipeline_status.get("latest_history_ad_date") or "N/A")
+    st.caption(
+        f"Pipeline ran: {pipeline_status.get('pipeline_ran_at_utc', 'N/A')} · "
+        f"Scrape ran: {scrape_status.get('scrape_ran_at_utc', 'N/A')}"
     )
 
-    trend_options = sorted(trend_source_df["commodity_key"].unique().tolist())
-    selected_trend_key = st.selectbox("Select commodity for trend", trend_options)
+# =============================================================================
+# TAB 2 · PRICE EXPLORER
+# =============================================================================
+with tab_explorer:
+    col_filter, col_main = st.columns([1, 3])
 
-    selected_trend_row = trend_source_df[
-        trend_source_df["commodity_key"] == selected_trend_key
-    ].iloc[0]
-
-    selected_trend_commodity = selected_trend_row["commodity"]
-    selected_trend_unit = selected_trend_row["unit"]
-    selected_trend_unit_display = "N/A" if pd.isna(selected_trend_unit) else str(selected_trend_unit)
-
-    if pd.isna(selected_trend_unit):
-        trend_df = history_df[
-            (history_df["commodity"] == selected_trend_commodity)
-            & (history_df["unit"].isna())
-        ].copy()
-    else:
-        trend_df = history_df[
-            (history_df["commodity"] == selected_trend_commodity)
-            & (history_df["unit"] == selected_trend_unit)
-        ].copy()
-
-    trend_df = (
-        trend_df.sort_values("sort_date")[["sort_date", "avg_price", "commodity", "unit", "scrape_date_bs"]]
-        .dropna(subset=["sort_date", "avg_price"])
-        .reset_index(drop=True)
-    )
-
-    if len(trend_df) > 0:
-        st.caption(f"Trend history for {selected_trend_commodity} ({selected_trend_unit_display})")
-        st.line_chart(trend_df.set_index("sort_date")["avg_price"])
-
-        safe_commodity = str(selected_trend_commodity).replace("/", "-").replace(" ", "_")
-        safe_unit = selected_trend_unit_display.replace("/", "-").replace(" ", "_")
-
-        st.download_button(
-            "Download trend CSV",
-            data=to_csv_bytes(trend_df.rename(columns={"sort_date": "date"})),
-            file_name=f"kalimati_trend_{safe_commodity}_{safe_unit}.csv",
-            mime="text/csv",
+    with col_filter:
+        st.markdown("**Filters**")
+        selected_date = st.selectbox(
+            "Market date", available_dates, index=len(available_dates) - 1
         )
-
-        st.dataframe(
-            trend_df.rename(columns={"sort_date": "date"})[
-                ["date", "scrape_date_bs", "commodity", "unit", "avg_price"]
-            ],
-            width="stretch",
+        view_mode = st.radio(
+            "View mode",
+            ["Safe default window", "Full raw history"],
+            help="Safe mode excludes policy-flagged rows.",
         )
-    else:
-        st.info("No trend data available for the selected commodity.")
-else:
-    st.info("No trend data available for the selected commodity.")
+        units = ["All"] + sorted(history_df["unit"].dropna().unique().tolist())
+        selected_unit = st.selectbox("Unit filter", units)
+        search_text = st.text_input("Search commodity", "")
 
-st.divider()
-st.header("Latest Snapshot")
-st.caption(
-    f"यो भाग selected date मा होइन, latest saved history date मा मात्र आधारित छ: {latest_saved_bs_date}"
-)
-
-if selected_date == latest_saved_bs_date:
-    st.caption("यो section latest saved date मा fixed छ, तर अहिलेको unit/search र safe-window filters लाई respect गर्छ.")
-    st.caption("तलका दुई count raw latest-date rows हुन्, watchlist filters apply हुनु अघि का.")
-
-    latest_anomaly_count = 0
-    if not anomaly_df.empty and "latest_bs_date" in anomaly_df.columns:
-        latest_anomaly_count = int(
-            (anomaly_df["latest_bs_date"] == latest_saved_bs_date).sum()
+    with col_main:
+        date_df = history_df[history_df["scrape_date_bs"] == selected_date].copy()
+        view_df = (
+            date_df[date_df["is_safe_default_row"]].copy()
+            if view_mode == "Safe default window"
+            else date_df.copy()
         )
-
-    latest_forecast_count = 0
-    if not forecast_df.empty and "latest_bs_date" in forecast_df.columns:
-        latest_forecast_count = int(
-            (forecast_df["latest_bs_date"] == latest_saved_bs_date).sum()
-        )
-
-    snap_c1, snap_c2 = st.columns(2)
-    with snap_c1:
-        st.metric("Raw latest-date anomaly rows", f"{latest_anomaly_count:,}")
-    with snap_c2:
-        st.metric("Raw latest-date forecast rows", f"{latest_forecast_count:,}")
-    if not anomaly_df.empty:
-        st.subheader("Anomaly Watchlist")
-
-        anomaly_display_df = anomaly_df.copy()
-        anomaly_display_df = anomaly_display_df[
-            anomaly_display_df["latest_bs_date"] == latest_saved_bs_date
-        ].copy()
-        anomaly_display_df = enrich_watchlist_df(
-            anomaly_display_df,
-            row_depth_policy_df,
-            price_quality_policy_df,
-        )
-
-        if view_mode == "Safe default window":
-            anomaly_display_df = anomaly_display_df[
-                anomaly_display_df["latest_is_safe_default_row"]
-            ].copy()
-
         if selected_unit != "All":
-            anomaly_display_df = anomaly_display_df[
-                anomaly_display_df["unit"] == selected_unit
-            ]
-
+            view_df = view_df[view_df["unit"] == selected_unit]
         if search_text.strip():
-            anomaly_display_df = anomaly_display_df[
-                anomaly_display_df["commodity"].str.contains(
-                    search_text.strip(), case=False, na=False
-                )
+            view_df = view_df[
+                view_df["commodity"].str.contains(search_text.strip(), case=False, na=False)
             ]
+        view_df = view_df.sort_values("commodity").reset_index(drop=True)
 
-        if len(anomaly_display_df) > 0:
-            st.caption(
-                f"Anomaly watchlist scoped to latest saved date {latest_saved_bs_date} | "
-                f"rows: {len(anomaly_display_df):,} | "
-                f"manual-review rows: {int(anomaly_display_df['latest_policy_manual_review'].sum())} | "
-                f"policy-excluded rows: {int(anomaly_display_df['latest_is_policy_excluded_from_default_model_window'].sum())}"
+        st.caption(
+            f"Showing **{len(view_df):,}** of **{len(date_df):,}** rows for `{selected_date}` · "
+            f"Policy-excluded: {int(date_df['is_policy_excluded'].sum())} · "
+            f"Manual-review: {int(date_df['policy_manual_review'].sum())}"
+        )
+
+        if len(view_df) > 0:
+            most_exp = view_df.nlargest(1, "avg_price").iloc[0]
+            cheapest_row = view_df.nsmallest(1, "avg_price").iloc[0]
+            ic1, ic2, ic3 = st.columns(3)
+            ic1.metric("Items shown", len(view_df))
+            ic2.metric(
+                "Most expensive",
+                f"Rs. {most_exp['avg_price']:.0f}",
+                most_exp["commodity"],
+            )
+            ic3.metric(
+                "Cheapest",
+                f"Rs. {cheapest_row['avg_price']:.0f}",
+                cheapest_row["commodity"],
             )
 
+            chart_df = view_df.nlargest(15, "avg_price").copy()
+            chart_df["label"] = (
+                chart_df["commodity"].astype(str)
+                + " ("
+                + chart_df["unit"].fillna("").astype(str)
+                + ")"
+            )
+            bar_exp = (
+                alt.Chart(chart_df)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("avg_price:Q", title="Avg Price (Rs.)"),
+                    y=alt.Y("label:N", sort="-x", title=""),
+                    color=alt.Color(
+                        "avg_price:Q",
+                        scale=alt.Scale(scheme="tealblues"),
+                        legend=None,
+                    ),
+                    tooltip=[
+                        "commodity:N",
+                        "unit:N",
+                        "min_price:Q",
+                        "max_price:Q",
+                        "avg_price:Q",
+                    ],
+                )
+                .properties(height=360, title=f"Top 15 by Avg Price — {selected_date}")
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+                .configure_title(color="#f1f5f9", fontSize=13)
+            )
+            st.altair_chart(bar_exp, use_container_width=True)
+
+        # Day-over-day comparison
+        idx_list = date_order.index[date_order["scrape_date_bs"] == selected_date].tolist()
+        if idx_list and idx_list[0] > 0:
+            prev_date = date_order.iloc[idx_list[0] - 1]["scrape_date_bs"]
+            prev_df = (
+                history_df[history_df["scrape_date_bs"] == prev_date][
+                    ["commodity", "unit", "avg_price"]
+                ]
+                .rename(columns={"avg_price": "prev_avg"})
+                .copy()
+            )
+            curr_df = view_df[["commodity", "unit", "avg_price"]].rename(
+                columns={"avg_price": "curr_avg"}
+            )
+            cmp_df = curr_df.merge(prev_df, on=["commodity", "unit"])
+            cmp_df["change"] = cmp_df["curr_avg"] - cmp_df["prev_avg"]
+            cmp_df["change_pct"] = (cmp_df["change"] / cmp_df["prev_avg"] * 100).round(1)
+
+            st.subheader(f"Day-over-Day vs {prev_date}")
+            disp_cols = ["commodity", "unit", "prev_avg", "curr_avg", "change", "change_pct"]
+            c1, c2 = st.columns(2)
+            with c1:
+                st.caption("Top Increases ↑")
+                st.dataframe(
+                    cmp_df.nlargest(10, "change")[disp_cols], use_container_width=True
+                )
+            with c2:
+                st.caption("Top Decreases ↓")
+                st.dataframe(
+                    cmp_df.nsmallest(10, "change")[disp_cols], use_container_width=True
+                )
+
+        with st.expander("Full price table + download"):
+            if len(view_df) > 0:
+                st.download_button(
+                    "Download CSV",
+                    data=to_csv_bytes(view_df),
+                    file_name=f"kalimati_{selected_date}.csv",
+                    mime="text/csv",
+                )
+            tbl_cols = [
+                "commodity",
+                "unit",
+                "min_price",
+                "max_price",
+                "avg_price",
+                "price_spread",
+                "history_confidence_band",
+                "row_depth_flag",
+                "price_quality_flag",
+                "policy_manual_review",
+            ]
+            tbl_cols = [c for c in tbl_cols if c in view_df.columns]
+            st.dataframe(view_df[tbl_cols], use_container_width=True)
+
+# =============================================================================
+# TAB 3 · ANOMALY WATCHLIST
+# =============================================================================
+with tab_anomaly:
+    if anomaly_df.empty:
+        st.info("Anomaly report not found. Run `python -m analysis.anomaly_report` first.")
+    else:
+        if "latest_bs_date" in anomaly_df.columns:
+            latest_anomaly = anomaly_df[anomaly_df["latest_bs_date"] == latest_bs].copy()
+        else:
+            latest_anomaly = anomaly_df.copy()
+
+        ac1, ac2, ac3 = st.columns(3)
+        ac1.metric("Anomaly signals (latest date)", len(latest_anomaly))
+        pos_spikes = (
+            int((latest_anomaly["pct_change_vs_median"] > 20).sum())
+            if "pct_change_vs_median" in latest_anomaly.columns
+            else 0
+        )
+        neg_drops = (
+            int((latest_anomaly["pct_change_vs_median"] < -20).sum())
+            if "pct_change_vs_median" in latest_anomaly.columns
+            else 0
+        )
+        ac2.metric("Positive spikes > 20%", pos_spikes)
+        ac3.metric("Negative drops > 20%", neg_drops)
+
+        if "pct_change_vs_median" in latest_anomaly.columns and len(latest_anomaly) > 0:
+            scatter_df = latest_anomaly.dropna(
+                subset=["current_avg_price", "baseline_median_7", "pct_change_vs_median"]
+            ).copy()
+            scatter_df["abs_pct"] = scatter_df["pct_change_vs_median"].abs()
+            scatter_df["direction"] = scatter_df["pct_change_vs_median"].apply(
+                lambda x: "Up" if x >= 0 else "Down"
+            )
+            scatter_chart = (
+                alt.Chart(scatter_df)
+                .mark_circle(opacity=0.8)
+                .encode(
+                    x=alt.X("baseline_median_7:Q", title="7-Day Baseline Median (Rs.)"),
+                    y=alt.Y("current_avg_price:Q", title="Current Avg Price (Rs.)"),
+                    size=alt.Size(
+                        "abs_pct:Q", scale=alt.Scale(range=[20, 300]), legend=None
+                    ),
+                    color=alt.Color(
+                        "direction:N",
+                        scale=alt.Scale(
+                            domain=["Up", "Down"], range=["#22c55e", "#ef4444"]
+                        ),
+                        legend=alt.Legend(title="Direction"),
+                    ),
+                    tooltip=[
+                        "commodity:N",
+                        "unit:N",
+                        "current_avg_price:Q",
+                        "baseline_median_7:Q",
+                        "pct_change_vs_median:Q",
+                    ],
+                )
+                .properties(height=360, title="Current Price vs 7-Day Median")
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+                .configure_title(color="#f1f5f9", fontSize=13)
+                .configure_legend(
+                    labelColor="#94a3b8",
+                    titleColor="#94a3b8",
+                    fillColor="#1e293b",
+                    strokeColor="#334155",
+                )
+            )
+            st.altair_chart(scatter_chart, use_container_width=True)
+
+        anm_cols = [
+            "commodity",
+            "unit",
+            "current_avg_price",
+            "baseline_median_7",
+            "pct_change_vs_median",
+            "latest_history_confidence_band",
+        ]
+        anm_cols = [c for c in anm_cols if c in latest_anomaly.columns]
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Top Price Spikes ↑")
+            st.dataframe(
+                latest_anomaly.nlargest(10, "pct_change_vs_median")[anm_cols],
+                use_container_width=True,
+            )
+        with c2:
+            st.subheader("Top Price Drops ↓")
+            st.dataframe(
+                latest_anomaly.nsmallest(10, "pct_change_vs_median")[anm_cols],
+                use_container_width=True,
+            )
+
+        with st.expander("Full anomaly table + download"):
             st.download_button(
                 "Download anomaly CSV",
-                data=to_csv_bytes(anomaly_display_df),
-                file_name=f"kalimati_anomaly_watchlist_{selected_date}.csv",
+                data=to_csv_bytes(latest_anomaly),
+                file_name=f"kalimati_anomaly_{latest_bs}.csv",
                 mime="text/csv",
             )
+            st.dataframe(latest_anomaly, use_container_width=True)
 
-            anomaly_cols = [
-                "commodity",
-                "unit",
-                "latest_bs_date",
-                "current_avg_price",
-                "baseline_median_7",
-                "pct_change_vs_median",
-                "latest_history_confidence_band",
-                "latest_is_default_model_window",
-                "latest_is_policy_excluded_from_default_model_window",
-                "latest_price_quality_flag",
-                "latest_policy_manual_review",
-            ]
-            anomaly_cols = [col for col in anomaly_cols if col in anomaly_display_df.columns]
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-                st.write("Top Positive Spikes")
-                st.dataframe(
-                    anomaly_display_df.sort_values(
-                        "pct_change_vs_median", ascending=False
-                    )[anomaly_cols].head(10),
-                    width="stretch",
-                )
-
-            with c2:
-                st.write("Top Negative Drops")
-                st.dataframe(
-                    anomaly_display_df.sort_values(
-                        "pct_change_vs_median", ascending=True
-                    )[anomaly_cols].head(10),
-                    width="stretch",
-                )
-        else:
-            st.info(
-                "No anomaly rows remain after latest-date scoping and current trust/filter selection."
-            )
-    else:
-        st.info("Anomaly report not found. Run analysis/anomaly_report.py first.")
-
-    if not forecast_df.empty:
-        st.subheader("Forecast Watchlist")
-
-        forecast_display_df = forecast_df.copy()
-        forecast_display_df = forecast_display_df[
-            forecast_display_df["latest_bs_date"] == latest_saved_bs_date
-        ].copy()
-        forecast_display_df = enrich_watchlist_df(
-            forecast_display_df,
-            row_depth_policy_df,
-            price_quality_policy_df,
+# =============================================================================
+# TAB 4 · FORECAST
+# =============================================================================
+with tab_forecast:
+    if forecast_df.empty:
+        st.info(
+            "Forecast report not found. Run `python -m analysis.forecast_baseline` first."
         )
-
-        if view_mode == "Safe default window":
-            forecast_display_df = forecast_display_df[
-                forecast_display_df["latest_is_safe_default_row"]
+    else:
+        if "latest_bs_date" in forecast_df.columns:
+            latest_forecast = forecast_df[
+                forecast_df["latest_bs_date"] == latest_bs
             ].copy()
+        else:
+            latest_forecast = forecast_df.copy()
 
-        if selected_unit != "All":
-            forecast_display_df = forecast_display_df[
-                forecast_display_df["unit"] == selected_unit
-            ]
+        fc1, fc2, fc3 = st.columns(3)
+        fc1.metric("Forecast series (latest date)", len(latest_forecast))
+        up_count = (
+            int((latest_forecast["forecast_delta_vs_latest"] > 0).sum())
+            if "forecast_delta_vs_latest" in latest_forecast.columns
+            else 0
+        )
+        down_count = (
+            int((latest_forecast["forecast_delta_vs_latest"] < 0).sum())
+            if "forecast_delta_vs_latest" in latest_forecast.columns
+            else 0
+        )
+        fc2.metric("Expected upward revisions", up_count)
+        fc3.metric("Expected downward revisions", down_count)
 
-        if search_text.strip():
-            forecast_display_df = forecast_display_df[
-                forecast_display_df["commodity"].str.contains(
-                    search_text.strip(), case=False, na=False
+        if "forecast_delta_vs_latest" in latest_forecast.columns and len(latest_forecast) > 0:
+            delta_df = latest_forecast.dropna(subset=["forecast_delta_vs_latest"]).copy()
+            delta_df["direction"] = delta_df["forecast_delta_vs_latest"].apply(
+                lambda x: "Up" if x >= 0 else "Down"
+            )
+            delta_df["abs_delta"] = delta_df["forecast_delta_vs_latest"].abs()
+            top15_f = delta_df.nlargest(15, "abs_delta").copy()
+            top15_f["label"] = (
+                top15_f["commodity"].astype(str)
+                + " ("
+                + top15_f["unit"].fillna("").astype(str)
+                + ")"
+            )
+            bar_forecast = (
+                alt.Chart(top15_f)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("forecast_delta_vs_latest:Q", title="Forecast Delta (Rs.)"),
+                    y=alt.Y("label:N", sort="-x", title=""),
+                    color=alt.Color(
+                        "direction:N",
+                        scale=alt.Scale(
+                            domain=["Up", "Down"], range=["#22c55e", "#ef4444"]
+                        ),
+                        legend=alt.Legend(title="Direction"),
+                    ),
+                    tooltip=[
+                        "commodity:N",
+                        "unit:N",
+                        "latest_avg_price:Q",
+                        "next_day_forecast:Q",
+                        "forecast_delta_vs_latest:Q",
+                    ],
                 )
-            ]
+                .properties(height=380, title="Top 15 Forecast Deltas")
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+                .configure_title(color="#f1f5f9", fontSize=13)
+                .configure_legend(
+                    labelColor="#94a3b8",
+                    titleColor="#94a3b8",
+                    fillColor="#1e293b",
+                    strokeColor="#334155",
+                )
+            )
+            st.altair_chart(bar_forecast, use_container_width=True)
 
-        if len(forecast_display_df) > 0:
-            st.caption(
-                f"Forecast watchlist scoped to latest saved date {latest_saved_bs_date} | "
-                f"rows: {len(forecast_display_df):,} | "
-                f"manual-review rows: {int(forecast_display_df['latest_policy_manual_review'].sum())} | "
-                f"policy-excluded rows: {int(forecast_display_df['latest_is_policy_excluded_from_default_model_window'].sum())}"
+        fcast_cols = [
+            "commodity",
+            "unit",
+            "latest_avg_price",
+            "rolling_median_7",
+            "next_day_forecast",
+            "forecast_delta_vs_latest",
+            "latest_history_confidence_band",
+        ]
+        fcast_cols = [c for c in fcast_cols if c in latest_forecast.columns]
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Expected Upward Revisions ↑")
+            st.dataframe(
+                latest_forecast.nlargest(10, "forecast_delta_vs_latest")[fcast_cols],
+                use_container_width=True,
+            )
+        with c2:
+            st.subheader("Expected Downward Revisions ↓")
+            st.dataframe(
+                latest_forecast.nsmallest(10, "forecast_delta_vs_latest")[fcast_cols],
+                use_container_width=True,
             )
 
+        with st.expander("Full forecast table + download"):
             st.download_button(
                 "Download forecast CSV",
-                data=to_csv_bytes(forecast_display_df),
-                file_name=f"kalimati_forecast_watchlist_{selected_date}.csv",
+                data=to_csv_bytes(latest_forecast),
+                file_name=f"kalimati_forecast_{latest_bs}.csv",
+                mime="text/csv",
+            )
+            st.dataframe(latest_forecast, use_container_width=True)
+
+# =============================================================================
+# TAB 5 · COMMODITY TRENDS
+# =============================================================================
+with tab_trends:
+    trend_keys = sorted(
+        {
+            f"{row['commodity']} ({row['unit']})"
+            for _, row in history_df[["commodity", "unit"]].drop_duplicates().iterrows()
+            if pd.notna(row["commodity"])
+        }
+    )
+
+    if not trend_keys:
+        st.info("No commodity data available.")
+    else:
+        selected_trend = st.selectbox("Select commodity", trend_keys)
+        parts = selected_trend.rsplit(" (", 1)
+        t_commodity = parts[0]
+        t_unit = parts[1].rstrip(")") if len(parts) > 1 else None
+
+        if t_unit and t_unit != "nan":
+            trend_data = history_df[
+                (history_df["commodity"] == t_commodity)
+                & (history_df["unit"] == t_unit)
+            ].copy()
+        else:
+            trend_data = history_df[
+                (history_df["commodity"] == t_commodity) & history_df["unit"].isna()
+            ].copy()
+
+        trend_data = (
+            trend_data.dropna(subset=["sort_date", "avg_price"])
+            .sort_values("sort_date")
+            .reset_index(drop=True)
+        )
+
+        if len(trend_data) == 0:
+            st.info("No trend data for the selected commodity.")
+        else:
+            conf_options = trend_data["history_confidence_band"].dropna().unique().tolist()
+            conf_filter = st.multiselect(
+                "Filter by confidence band",
+                options=["all"] + conf_options,
+                default=["all"],
+            )
+            plot_data = (
+                trend_data
+                if "all" in conf_filter or not conf_filter
+                else trend_data[trend_data["history_confidence_band"].isin(conf_filter)]
+            ).copy()
+
+            tc1, tc2, tc3 = st.columns(3)
+            tc1.metric("Data points", len(plot_data))
+            tc2.metric(
+                "Latest avg price",
+                f"Rs. {plot_data['avg_price'].iloc[-1]:.2f}" if len(plot_data) else "N/A",
+            )
+            tc3.metric(
+                "All-time avg", f"Rs. {plot_data['avg_price'].mean():.2f}"
+            )
+
+            base_t = alt.Chart(plot_data)
+            band_t = base_t.mark_area(opacity=0.2, color="#3b82f6").encode(
+                x=alt.X("sort_date:T", title="Date"),
+                y=alt.Y("min_price:Q", title="Price (Rs.)", scale=alt.Scale(zero=False)),
+                y2="max_price:Q",
+            )
+            line_t = base_t.mark_line(color="#3b82f6", strokeWidth=2).encode(
+                x=alt.X("sort_date:T"),
+                y=alt.Y("avg_price:Q"),
+                tooltip=[
+                    "scrape_date_bs:N",
+                    "avg_price:Q",
+                    "min_price:Q",
+                    "max_price:Q",
+                ],
+            )
+            trend_chart = (
+                (band_t + line_t)
+                .properties(
+                    height=360,
+                    title=f"{t_commodity} ({t_unit}) — Price History",
+                )
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+                .configure_title(color="#f1f5f9", fontSize=13)
+            )
+            st.altair_chart(trend_chart, use_container_width=True)
+
+            st.download_button(
+                "Download trend CSV",
+                data=to_csv_bytes(
+                    plot_data[
+                        ["sort_date", "scrape_date_bs", "avg_price", "min_price", "max_price"]
+                    ]
+                ),
+                file_name=f"kalimati_trend_{t_commodity}.csv",
                 mime="text/csv",
             )
 
-            forecast_cols = [
-                "commodity",
-                "unit",
-                "latest_bs_date",
-                "latest_avg_price",
-                "rolling_median_7",
-                "next_day_forecast",
-                "forecast_delta_vs_latest",
-                "latest_history_confidence_band",
-                "latest_is_default_model_window",
-                "latest_is_policy_excluded_from_default_model_window",
-                "latest_price_quality_flag",
-                "latest_policy_manual_review",
-            ]
-            forecast_cols = [col for col in forecast_cols if col in forecast_display_df.columns]
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-                st.write("Expected Upward Reversion")
+            with st.expander("Full trend table"):
                 st.dataframe(
-                    forecast_display_df.sort_values(
-                        "forecast_delta_vs_latest", ascending=False
-                    )[forecast_cols].head(10),
-                    width="stretch",
+                    plot_data[
+                        [
+                            "sort_date",
+                            "scrape_date_bs",
+                            "avg_price",
+                            "min_price",
+                            "max_price",
+                            "history_confidence_band",
+                        ]
+                    ],
+                    use_container_width=True,
                 )
 
-            with c2:
-                st.write("Expected Downward Reversion")
-                st.dataframe(
-                    forecast_display_df.sort_values(
-                        "forecast_delta_vs_latest", ascending=True
-                    )[forecast_cols].head(10),
-                    width="stretch",
+# =============================================================================
+# TAB 6 · DATA QUALITY
+# =============================================================================
+with tab_quality:
+    col_rd, col_pq = st.columns(2)
+
+    with col_rd:
+        st.subheader("Row-Depth Policy Flags")
+        if not row_depth_df.empty and "row_depth_severity" in row_depth_df.columns:
+            rd_summary = (
+                row_depth_df.groupby("row_depth_severity")
+                .size()
+                .reset_index(name="count")
+            )
+            rd_bar = (
+                alt.Chart(rd_summary)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("row_depth_severity:N", title="Severity"),
+                    y=alt.Y("count:Q", title="Date Count"),
+                    color=alt.Color(
+                        "row_depth_severity:N",
+                        scale=alt.Scale(
+                            domain=["normal", "low", "critical_low"],
+                            range=["#22c55e", "#f59e0b", "#ef4444"],
+                        ),
+                        legend=None,
+                    ),
+                    tooltip=["row_depth_severity:N", "count:Q"],
                 )
+                .properties(height=220)
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+            )
+            st.altair_chart(rd_bar, use_container_width=True)
+            qd1, qd2 = st.columns(2)
+            qd1.metric("Date coverage rows", len(row_depth_df))
+            excl_rd = (
+                int(row_depth_df["exclude_from_default_model_window"].sum())
+                if "exclude_from_default_model_window" in row_depth_df.columns
+                else 0
+            )
+            qd2.metric("Excluded from model window", excl_rd)
         else:
             st.info(
-                "No forecast rows remain after latest-date scoping and current trust/filter selection."
+                "Row-depth flags not found. Run `python -m analysis.generate_policy_flags`."
             )
-    else:
-        st.info("Forecast report not found. Run analysis/forecast_baseline.py first.")
-else:
-    st.info(
-        f"Anomaly and forecast watchlists are shown only for the latest saved history date: {latest_saved_bs_date}"
-    )
+
+    with col_pq:
+        st.subheader("Price-Quality Flags")
+        if not price_quality_df.empty and "price_issue_type" in price_quality_df.columns:
+            pq_summary = (
+                price_quality_df.groupby("price_issue_type")
+                .size()
+                .reset_index(name="count")
+            )
+            pq_bar = (
+                alt.Chart(pq_summary)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                .encode(
+                    x=alt.X("price_issue_type:N", title="Issue Type"),
+                    y=alt.Y("count:Q", title="Row Count"),
+                    color=alt.Color("price_issue_type:N", legend=None),
+                    tooltip=["price_issue_type:N", "count:Q"],
+                )
+                .properties(height=220)
+                .configure_view(strokeWidth=0)
+                .configure_axis(**_CHART_CFG)
+            )
+            st.altair_chart(pq_bar, use_container_width=True)
+            pq1, pq2 = st.columns(2)
+            pq1.metric("Total price-quality flags", len(price_quality_df))
+            excl_pq = (
+                int(price_quality_df["exclude_from_default_model_window"].sum())
+                if "exclude_from_default_model_window" in price_quality_df.columns
+                else 0
+            )
+            pq2.metric("Excluded from model window", excl_pq)
+        else:
+            st.info(
+                "Price-quality flags not found. Run `python -m analysis.generate_policy_flags`."
+            )
+
+    with st.expander("Data sources & audit summary"):
+        st.markdown(
+            f"""
+| Dataset | Rows |
+|---------|------|
+| Price history | {len(history_df):,} |
+| Anomaly report | {len(anomaly_df):,} |
+| Forecast baseline | {len(forecast_df):,} |
+| Row-depth policy flags | {len(row_depth_df):,} |
+| Price-quality policy flags | {len(price_quality_df):,} |
+"""
+        )
+        st.caption(
+            f"Pipeline ran at: {pipeline_status.get('pipeline_ran_at_utc', 'N/A')} · "
+            f"Latest BS date: {pipeline_status.get('latest_history_bs_date', 'N/A')}"
+        )

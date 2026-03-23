@@ -17,6 +17,7 @@ PRE_STATUS_STEPS = [
     ["-m", "analysis.generate_market_brief"],
     ["-m", "analysis.commodity_normalization_audit"],
     ["-m", "analysis.data_quality_audit"],
+    ["-m", "analysis.generate_policy_flags"],
 ]
 
 POST_STATUS_STEPS = [
