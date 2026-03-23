@@ -371,6 +371,11 @@ date_order_df = (
 )
 
 available_dates = date_order_df["scrape_date_bs"].tolist()
+
+latest_saved_bs_date = pipeline_status.get("latest_history_bs_date")
+if not latest_saved_bs_date and available_dates:
+    latest_saved_bs_date = available_dates[-1]
+
 latest_scrape_bs_date = (
     scrape_status.get("returned_bs_date")
     or scrape_status.get("scrape_date_bs")
