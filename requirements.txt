@@ -4,3 +4,4 @@ beautifulsoup4
 lxml
 streamlit
 scikit-learn
+altair==4.2.2
