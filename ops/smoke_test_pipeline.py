@@ -1,3 +1,6 @@
+"""Post-pipeline smoke tests — asserts all expected outputs exist and are sane."""
+from __future__ import annotations
+
 import json
 import sqlite3
 from pathlib import Path
@@ -21,22 +24,41 @@ PIPELINE_STATUS_JSON = PROCESSED / "kalimati_pipeline_status.json"
 SCRAPE_STATUS_JSON = PROCESSED / "kalimati_last_scrape_status.json"
 SQLITE_DB = PROCESSED / "kalimati.db"
 
+_SAFE_TABLE_NAMES: frozenset[str] = frozenset(
+    {
+        "price_history",
+        "anomaly_report",
+        "forecast_baseline",
+        "commodity_name_counts",
+        "commodity_normalization_exact_groups",
+        "commodity_normalization_fuzzy_pairs",
+        "data_quality_audit_summary",
+        "pipeline_status",
+        "scrape_status",
+        "market_brief",
+        "row_depth_policy_flags",
+        "price_quality_policy_flags",
+    }
+)
 
-def assert_true(condition, message):
+
+def assert_true(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
     print(f"[OK] {message}")
 
 
-def load_json(path):
+def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def table_count(conn, table_name):
-    return conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+def _safe_table_count(conn: sqlite3.Connection, table_name: str) -> int:
+    if table_name not in _SAFE_TABLE_NAMES:
+        raise ValueError(f"Unknown table name: {table_name!r}")
+    return conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]  # noqa: S608
 
 
-def read_csv_allow_empty(path, label):
+def read_csv_allow_empty(path: Path, label: str) -> pd.DataFrame:
     try:
         return pd.read_csv(path)
     except pd.errors.EmptyDataError:
@@ -44,24 +66,38 @@ def read_csv_allow_empty(path, label):
         return pd.DataFrame()
 
 
-def main():
+def main() -> None:
     print("Kalimati Saathi smoke test")
     print("=" * 60)
 
+    # ── File existence ────────────────────────────────────────────────────────
     assert_true(HISTORY_CSV.exists(), "history CSV exists")
     assert_true(ANOMALY_CSV.exists(), "anomaly CSV exists")
     assert_true(FORECAST_CSV.exists(), "forecast CSV exists")
     assert_true(MARKET_BRIEF_MD.exists(), "market brief markdown exists")
     assert_true(COMMODITY_NAME_COUNTS_CSV.exists(), "commodity name counts CSV exists")
-    assert_true(COMMODITY_NORMALIZATION_EXACT_GROUPS_CSV.exists(), "commodity normalization exact groups CSV exists")
-    assert_true(COMMODITY_NORMALIZATION_FUZZY_PAIRS_CSV.exists(), "commodity normalization fuzzy pairs CSV exists")
-    assert_true(DATA_QUALITY_AUDIT_SUMMARY_TXT.exists(), "data quality audit summary text exists")
-    assert_true(ROW_DEPTH_POLICY_FLAGS_CSV.exists(), "row depth policy flags CSV exists")
-    assert_true(PRICE_QUALITY_POLICY_FLAGS_CSV.exists(), "price quality policy flags CSV exists")
+    assert_true(
+        COMMODITY_NORMALIZATION_EXACT_GROUPS_CSV.exists(),
+        "commodity normalization exact groups CSV exists",
+    )
+    assert_true(
+        COMMODITY_NORMALIZATION_FUZZY_PAIRS_CSV.exists(),
+        "commodity normalization fuzzy pairs CSV exists",
+    )
+    assert_true(
+        DATA_QUALITY_AUDIT_SUMMARY_TXT.exists(), "data quality audit summary text exists"
+    )
+    assert_true(
+        ROW_DEPTH_POLICY_FLAGS_CSV.exists(), "row depth policy flags CSV exists"
+    )
+    assert_true(
+        PRICE_QUALITY_POLICY_FLAGS_CSV.exists(), "price quality policy flags CSV exists"
+    )
     assert_true(PIPELINE_STATUS_JSON.exists(), "pipeline status JSON exists")
     assert_true(SCRAPE_STATUS_JSON.exists(), "scrape status JSON exists")
     assert_true(SQLITE_DB.exists(), "SQLite DB exists")
 
+    # ── CSV contents ──────────────────────────────────────────────────────────
     history_df = pd.read_csv(HISTORY_CSV).copy()
     anomaly_df = pd.read_csv(ANOMALY_CSV)
     forecast_df = pd.read_csv(FORECAST_CSV)
@@ -79,18 +115,32 @@ def main():
     pipeline_status = load_json(PIPELINE_STATUS_JSON)
     scrape_status = load_json(SCRAPE_STATUS_JSON)
     market_brief_text = MARKET_BRIEF_MD.read_text(encoding="utf-8")
-    data_quality_audit_summary_text = DATA_QUALITY_AUDIT_SUMMARY_TXT.read_text(encoding="utf-8")
+    data_quality_audit_summary_text = DATA_QUALITY_AUDIT_SUMMARY_TXT.read_text(
+        encoding="utf-8"
+    )
 
     assert_true(len(history_df) > 0, "history CSV has rows")
     assert_true(len(anomaly_df) > 0, "anomaly CSV has rows")
     assert_true(len(forecast_df) > 0, "forecast CSV has rows")
     assert_true(len(commodity_name_counts_df) > 0, "commodity name counts CSV has rows")
-    assert_true(len(row_depth_policy_flags_df) > 0, "row depth policy flags CSV has rows")
-    assert_true(len(price_quality_policy_flags_df) > 0, "price quality policy flags CSV has rows")
-    assert_true("Kalimati Market Brief" in market_brief_text, "market brief has expected title")
-    assert_true("Kalimati Saathi Data Quality Audit" in data_quality_audit_summary_text, "data quality audit summary has expected title")
+    assert_true(
+        len(row_depth_policy_flags_df) > 0, "row depth policy flags CSV has rows"
+    )
+    assert_true(
+        "Kalimati Market Brief" in market_brief_text,
+        "market brief has expected title",
+    )
+    assert_true(
+        "Kalimati Saathi Data Quality Audit" in data_quality_audit_summary_text,
+        "data quality audit summary has expected title",
+    )
     assert_true("history_rows" in pipeline_status, "pipeline status has history_rows")
     assert_true("status" in scrape_status, "scrape status has status field")
+
+    # price_quality_policy_flags can legitimately be empty when data is clean
+    print(
+        f"[INFO] price_quality_policy_flags rows: {len(price_quality_policy_flags_df)}"
+    )
 
     required_row_depth_policy_columns = {
         "requested_date_ad",
@@ -120,11 +170,15 @@ def main():
         "manual_review",
         "policy_action",
     }
-    assert_true(
-        required_price_quality_policy_columns.issubset(set(price_quality_policy_flags_df.columns)),
-        "price quality policy flags CSV has required columns",
-    )
+    if len(price_quality_policy_flags_df) > 0:
+        assert_true(
+            required_price_quality_policy_columns.issubset(
+                set(price_quality_policy_flags_df.columns)
+            ),
+            "price quality policy flags CSV has required columns",
+        )
 
+    # ── SQLite ────────────────────────────────────────────────────────────────
     conn = sqlite3.connect(SQLITE_DB)
     try:
         tables = {
@@ -144,67 +198,78 @@ def main():
             "row_depth_policy_flags",
             "price_quality_policy_flags",
         }
-
         if len(commodity_normalization_exact_groups_df) > 0:
             required_tables.add("commodity_normalization_exact_groups")
         if len(commodity_normalization_fuzzy_pairs_df) > 0:
             required_tables.add("commodity_normalization_fuzzy_pairs")
 
         missing_tables = required_tables - tables
-        assert_true(not missing_tables, f"required SQLite tables exist: {sorted(required_tables)}")
-
-        sqlite_history_rows = table_count(conn, "price_history")
-        sqlite_anomaly_rows = table_count(conn, "anomaly_report")
-        sqlite_forecast_rows = table_count(conn, "forecast_baseline")
-        sqlite_commodity_name_counts_rows = table_count(conn, "commodity_name_counts")
-        sqlite_row_depth_policy_flags_rows = table_count(conn, "row_depth_policy_flags")
-        sqlite_price_quality_policy_flags_rows = table_count(conn, "price_quality_policy_flags")
-        sqlite_data_quality_audit_summary_rows = table_count(conn, "data_quality_audit_summary")
-        sqlite_pipeline_rows = table_count(conn, "pipeline_status")
-        sqlite_scrape_rows = table_count(conn, "scrape_status")
-        sqlite_brief_rows = table_count(conn, "market_brief")
-
-        assert_true(sqlite_history_rows == len(history_df), "SQLite history row count matches CSV")
-        assert_true(sqlite_anomaly_rows == len(anomaly_df), "SQLite anomaly row count matches CSV")
-        assert_true(sqlite_forecast_rows == len(forecast_df), "SQLite forecast row count matches CSV")
         assert_true(
-            sqlite_commodity_name_counts_rows == len(commodity_name_counts_df),
-            "SQLite commodity_name_counts row count matches CSV"
+            not missing_tables,
+            f"required SQLite tables exist: {sorted(required_tables)}",
+        )
+
+        sqlite_history_rows = _safe_table_count(conn, "price_history")
+        sqlite_anomaly_rows = _safe_table_count(conn, "anomaly_report")
+        sqlite_forecast_rows = _safe_table_count(conn, "forecast_baseline")
+        sqlite_counts_rows = _safe_table_count(conn, "commodity_name_counts")
+        sqlite_rdpf_rows = _safe_table_count(conn, "row_depth_policy_flags")
+        sqlite_pqpf_rows = _safe_table_count(conn, "price_quality_policy_flags")
+        sqlite_audit_rows = _safe_table_count(conn, "data_quality_audit_summary")
+        sqlite_pipeline_rows = _safe_table_count(conn, "pipeline_status")
+        sqlite_scrape_rows = _safe_table_count(conn, "scrape_status")
+        sqlite_brief_rows = _safe_table_count(conn, "market_brief")
+
+        assert_true(
+            sqlite_history_rows == len(history_df),
+            "SQLite history row count matches CSV",
         )
         assert_true(
-            sqlite_row_depth_policy_flags_rows == len(row_depth_policy_flags_df),
-            "SQLite row_depth_policy_flags row count matches CSV"
+            sqlite_anomaly_rows == len(anomaly_df),
+            "SQLite anomaly row count matches CSV",
         )
         assert_true(
-            sqlite_price_quality_policy_flags_rows == len(price_quality_policy_flags_df),
-            "SQLite price_quality_policy_flags row count matches CSV"
+            sqlite_forecast_rows == len(forecast_df),
+            "SQLite forecast row count matches CSV",
+        )
+        assert_true(
+            sqlite_counts_rows == len(commodity_name_counts_df),
+            "SQLite commodity_name_counts row count matches CSV",
+        )
+        assert_true(
+            sqlite_rdpf_rows == len(row_depth_policy_flags_df),
+            "SQLite row_depth_policy_flags row count matches CSV",
+        )
+        assert_true(
+            sqlite_pqpf_rows == len(price_quality_policy_flags_df),
+            "SQLite price_quality_policy_flags row count matches CSV",
         )
 
         if "commodity_normalization_exact_groups" in tables:
-            sqlite_exact_groups_rows = table_count(conn, "commodity_normalization_exact_groups")
             assert_true(
-                sqlite_exact_groups_rows == len(commodity_normalization_exact_groups_df),
-                "SQLite commodity_normalization_exact_groups row count matches CSV"
+                _safe_table_count(conn, "commodity_normalization_exact_groups")
+                == len(commodity_normalization_exact_groups_df),
+                "SQLite commodity_normalization_exact_groups row count matches CSV",
             )
         else:
             assert_true(
                 len(commodity_normalization_exact_groups_df) == 0,
-                "commodity_normalization_exact_groups table may be absent only when CSV is empty"
+                "commodity_normalization_exact_groups absent only when CSV is empty",
             )
 
         if "commodity_normalization_fuzzy_pairs" in tables:
-            sqlite_fuzzy_pairs_rows = table_count(conn, "commodity_normalization_fuzzy_pairs")
             assert_true(
-                sqlite_fuzzy_pairs_rows == len(commodity_normalization_fuzzy_pairs_df),
-                "SQLite commodity_normalization_fuzzy_pairs row count matches CSV"
+                _safe_table_count(conn, "commodity_normalization_fuzzy_pairs")
+                == len(commodity_normalization_fuzzy_pairs_df),
+                "SQLite commodity_normalization_fuzzy_pairs row count matches CSV",
             )
         else:
             assert_true(
                 len(commodity_normalization_fuzzy_pairs_df) == 0,
-                "commodity_normalization_fuzzy_pairs table may be absent only when CSV is empty"
+                "commodity_normalization_fuzzy_pairs absent only when CSV is empty",
             )
 
-        assert_true(sqlite_data_quality_audit_summary_rows == 1, "SQLite data_quality_audit_summary has one row")
+        assert_true(sqlite_audit_rows == 1, "SQLite data_quality_audit_summary has one row")
         assert_true(sqlite_pipeline_rows == 1, "SQLite pipeline_status has one row")
         assert_true(sqlite_scrape_rows == 1, "SQLite scrape_status has one row")
         assert_true(sqlite_brief_rows == 1, "SQLite market_brief has one row")
@@ -212,18 +277,23 @@ def main():
     finally:
         conn.close()
 
-    history_df["requested_date_ad_dt"] = pd.to_datetime(history_df["requested_date_ad"], errors="coerce")
+    # ── Pipeline status consistency ───────────────────────────────────────────
+    history_df["requested_date_ad_dt"] = pd.to_datetime(
+        history_df["requested_date_ad"], errors="coerce"
+    )
     history_df["fetched_at_utc_dt"] = pd.to_datetime(
         history_df["fetched_at_utc"], errors="coerce", utc=True
     ).dt.tz_convert(None)
-    history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(history_df["fetched_at_utc_dt"])
+    history_df["sort_date"] = history_df["requested_date_ad_dt"].fillna(
+        history_df["fetched_at_utc_dt"]
+    )
 
     latest_idx = history_df["sort_date"].idxmax()
     latest_history_bs = history_df.loc[latest_idx, "scrape_date_bs"]
 
     assert_true(
         pipeline_status.get("latest_history_bs_date") == latest_history_bs,
-        "pipeline status latest_history_bs_date matches latest history by sort_date"
+        "pipeline status latest_history_bs_date matches latest history by sort_date",
     )
 
     print()

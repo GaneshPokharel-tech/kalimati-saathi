@@ -1,3 +1,6 @@
+"""Comprehensive data quality audit — outputs a human-readable summary text file."""
+from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
 
@@ -5,12 +8,13 @@ import pandas as pd
 
 from analysis.history_confidence import add_history_confidence, confidence_band_summary
 
-DB_PATH = Path("data/processed/kalimati.db")
-HISTORY_CSV = Path("data/processed/kalimati_price_history.csv")
-OUT_PATH = Path("data/processed/data_quality_audit_summary.txt")
+ROOT = Path(__file__).resolve().parent.parent
+DB_PATH = ROOT / "data/processed/kalimati.db"
+HISTORY_CSV = ROOT / "data/processed/kalimati_price_history.csv"
+OUT_PATH = ROOT / "data/processed/data_quality_audit_summary.txt"
 
 
-def load_history():
+def load_history() -> pd.DataFrame:
     if DB_PATH.exists():
         conn = sqlite3.connect(DB_PATH)
         try:
@@ -26,7 +30,7 @@ def load_history():
     raise FileNotFoundError("No history source found")
 
 
-def main():
+def main() -> None:
     df = load_history().copy()
     df = add_history_confidence(df)
 
@@ -37,21 +41,21 @@ def main():
     latest_bs_date = df.loc[latest_idx, "scrape_date_bs"]
     latest_df = df[df["scrape_date_bs"] == latest_bs_date].copy()
 
-    null_summary = df[[
-        "fetched_at_utc", "requested_date_ad", "scrape_date_bs",
-        "commodity", "unit", "min_price", "max_price", "avg_price"
-    ]].isna().sum().sort_values(ascending=False)
+    null_summary = df[
+        ["fetched_at_utc", "requested_date_ad", "scrape_date_bs",
+         "commodity", "unit", "min_price", "max_price", "avg_price"]
+    ].isna().sum().sort_values(ascending=False)
 
     invalid_price_rows = df[
-        (df["min_price"].notna() & df["max_price"].notna() & (df["min_price"] > df["max_price"])) |
-        (df["avg_price"].notna() & df["min_price"].notna() & (df["avg_price"] < df["min_price"])) |
-        (df["avg_price"].notna() & df["max_price"].notna() & (df["avg_price"] > df["max_price"]))
+        (df["min_price"].notna() & df["max_price"].notna() & (df["min_price"] > df["max_price"]))
+        | (df["avg_price"].notna() & df["min_price"].notna() & (df["avg_price"] < df["min_price"]))
+        | (df["avg_price"].notna() & df["max_price"].notna() & (df["avg_price"] > df["max_price"]))
     ].copy()
 
     zero_or_negative_rows = df[
-        (df["min_price"].fillna(0) <= 0) |
-        (df["max_price"].fillna(0) <= 0) |
-        (df["avg_price"].fillna(0) <= 0)
+        (df["min_price"].fillna(0) <= 0)
+        | (df["max_price"].fillna(0) <= 0)
+        | (df["avg_price"].fillna(0) <= 0)
     ].copy()
 
     unit_counts = (
@@ -83,10 +87,11 @@ def main():
 
     lines.append("History confidence summary")
     lines.append("-" * 60)
-    if len(confidence_summary_df) > 0:
-        lines.append(confidence_summary_df.to_string(index=False))
-    else:
-        lines.append("None")
+    lines.append(
+        confidence_summary_df.to_string(index=False)
+        if len(confidence_summary_df) > 0
+        else "None"
+    )
     lines.append("")
 
     lines.append("Null summary")
@@ -112,35 +117,36 @@ def main():
 
     lines.append("Unit distribution (all history)")
     lines.append("-" * 60)
-    if len(unit_counts) > 0:
-        lines.append(unit_counts.to_string(index=False))
-    else:
-        lines.append("None")
+    lines.append(
+        unit_counts.to_string(index=False) if len(unit_counts) > 0 else "None"
+    )
     lines.append("")
 
     lines.append("Unit distribution (latest date)")
     lines.append("-" * 60)
-    if len(latest_unit_counts) > 0:
-        lines.append(latest_unit_counts.to_string(index=False))
-    else:
-        lines.append("None")
+    lines.append(
+        latest_unit_counts.to_string(index=False)
+        if len(latest_unit_counts) > 0
+        else "None"
+    )
     lines.append("")
 
     OUT_PATH.write_text("\n".join(lines), encoding="utf-8")
 
     print("Data quality audit completed")
-    print("Output:", OUT_PATH)
-    print("Total rows:", len(df))
-    print("Latest BS date:", latest_bs_date)
-    print("Duplicate rows:", len(duplicate_rows))
-    print("Invalid price rows:", len(invalid_price_rows))
-    print("Zero/negative price rows:", len(zero_or_negative_rows))
+    print(f"Output: {OUT_PATH}")
+    print(f"Total rows: {len(df)}")
+    print(f"Latest BS date: {latest_bs_date}")
+    print(f"Duplicate rows: {len(duplicate_rows)}")
+    print(f"Invalid price rows: {len(invalid_price_rows)}")
+    print(f"Zero/negative price rows: {len(zero_or_negative_rows)}")
     print()
     print("Confidence summary:")
-    if len(confidence_summary_df) > 0:
-        print(confidence_summary_df.to_string(index=False))
-    else:
-        print("None")
+    print(
+        confidence_summary_df.to_string(index=False)
+        if len(confidence_summary_df) > 0
+        else "None"
+    )
     print()
     print("Null summary:")
     print(null_summary.to_string())
