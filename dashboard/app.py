@@ -371,6 +371,7 @@ date_order_df = (
 )
 
 available_dates = date_order_df["scrape_date_bs"].tolist()
+st.divider()
 st.header("Selected Date Explorer")
 st.caption(
     "यो भाग selected market date मा आधारित छ. Trend vs Previous Date ले calendar previous day होइन, selected date भन्दा अघिल्लो available data date सँग compare गर्छ."
@@ -557,6 +558,7 @@ if len(filtered_df) > 0:
     ].head(10)
     st.dataframe(spread_df, width="stretch")
 
+    st.divider()
     st.header("Commodity History")
     st.caption("यो भाग commodity + unit specific history का लागि हो. Trend chart selected commodity/unit को पुरानो usable history देखाउँछ.")
     st.subheader("Commodity Price Trend")
@@ -625,6 +627,7 @@ if len(trend_source_df) > 0:
 else:
     st.info("No trend data available for the selected commodity.")
 
+st.divider()
 st.header("Latest Snapshot")
 st.caption(
     f"यो भाग selected date मा होइन, latest saved history date मा मात्र आधारित छ: {latest_saved_bs_date}"
