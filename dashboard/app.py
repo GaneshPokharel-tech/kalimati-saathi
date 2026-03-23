@@ -512,51 +512,54 @@ if len(date_order_df) >= 2:
             top_down_df = compare_df.sort_values("price_change", ascending=True).head(10)
             st.dataframe(top_down_df[display_cols], width="stretch")
 
-st.subheader("Filtered Daily Price Table")
+with st.expander("Detailed Selected Date Data", expanded=False):
+    st.caption("यो भागमा filtered daily table, CSV export, र selected-date charts छन्.")
 
-if len(filtered_df) > 0:
-    st.download_button(
-        "Download filtered daily CSV",
-        data=to_csv_bytes(filtered_df),
-        file_name=f"kalimati_filtered_daily_{selected_date}.csv",
-        mime="text/csv",
-    )
+    st.subheader("Filtered Daily Price Table")
 
-table_display_cols = [
-    "commodity",
-    "unit",
-    "min_price",
-    "max_price",
-    "avg_price",
-    "price_spread",
-    "history_confidence_band",
-    "is_default_model_window",
-    "is_policy_excluded_from_default_model_window",
-    "row_depth_flag",
-    "price_quality_flag",
-    "policy_manual_review",
-]
+    if len(filtered_df) > 0:
+        st.download_button(
+            "Download filtered daily CSV",
+            data=to_csv_bytes(filtered_df),
+            file_name=f"kalimati_filtered_daily_{selected_date}.csv",
+            mime="text/csv",
+        )
 
-table_display_cols = [col for col in table_display_cols if col in filtered_df.columns]
+    table_display_cols = [
+        "commodity",
+        "unit",
+        "min_price",
+        "max_price",
+        "avg_price",
+        "price_spread",
+        "history_confidence_band",
+        "is_default_model_window",
+        "is_policy_excluded_from_default_model_window",
+        "row_depth_flag",
+        "price_quality_flag",
+        "policy_manual_review",
+    ]
 
-st.dataframe(filtered_df[table_display_cols], width="stretch")
+    table_display_cols = [col for col in table_display_cols if col in filtered_df.columns]
 
-if len(filtered_df) > 0:
-    st.subheader("Top 15 by Average Price")
-    chart_df = filtered_df.sort_values("avg_price", ascending=False).head(15).copy()
-    chart_df["item_label"] = (
-        chart_df["commodity"].fillna("").astype(str)
-        + " ("
-        + chart_df["unit"].fillna("N/A").astype(str)
-        + ")"
-    )
-    st.bar_chart(chart_df.set_index("item_label")["avg_price"])
+    st.dataframe(filtered_df[table_display_cols], width="stretch")
 
-    st.subheader("Top 10 Widest Price Spread")
-    spread_df = filtered_df.sort_values("price_spread", ascending=False)[
-        ["commodity", "unit", "min_price", "max_price", "price_spread"]
-    ].head(10)
-    st.dataframe(spread_df, width="stretch")
+    if len(filtered_df) > 0:
+        st.subheader("Top 15 by Average Price")
+        chart_df = filtered_df.sort_values("avg_price", ascending=False).head(15).copy()
+        chart_df["item_label"] = (
+            chart_df["commodity"].fillna("").astype(str)
+            + " ("
+            + chart_df["unit"].fillna("N/A").astype(str)
+            + ")"
+        )
+        st.bar_chart(chart_df.set_index("item_label")["avg_price"])
+
+        st.subheader("Top 10 Widest Price Spread")
+        spread_df = filtered_df.sort_values("price_spread", ascending=False)[
+            ["commodity", "unit", "min_price", "max_price", "price_spread"]
+        ].head(10)
+        st.dataframe(spread_df, width="stretch")
 
     st.divider()
     st.header("Commodity History")
