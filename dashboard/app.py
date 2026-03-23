@@ -634,6 +634,26 @@ st.caption(
 )
 
 if selected_date == latest_saved_bs_date:
+    st.caption("यो section latest saved date मा fixed छ, तर अहिलेको unit/search र safe-window filters लाई respect गर्छ.")
+    st.caption("तलका दुई count raw latest-date rows हुन्, watchlist filters apply हुनु अघि का.")
+
+    latest_anomaly_count = 0
+    if not anomaly_df.empty and "latest_bs_date" in anomaly_df.columns:
+        latest_anomaly_count = int(
+            (anomaly_df["latest_bs_date"] == latest_saved_bs_date).sum()
+        )
+
+    latest_forecast_count = 0
+    if not forecast_df.empty and "latest_bs_date" in forecast_df.columns:
+        latest_forecast_count = int(
+            (forecast_df["latest_bs_date"] == latest_saved_bs_date).sum()
+        )
+
+    snap_c1, snap_c2 = st.columns(2)
+    with snap_c1:
+        st.metric("Raw latest-date anomaly rows", f"{latest_anomaly_count:,}")
+    with snap_c2:
+        st.metric("Raw latest-date forecast rows", f"{latest_forecast_count:,}")
     if not anomaly_df.empty:
         st.subheader("Anomaly Watchlist")
 
