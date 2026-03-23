@@ -371,6 +371,41 @@ date_order_df = (
 )
 
 available_dates = date_order_df["scrape_date_bs"].tolist()
+latest_scrape_bs_date = (
+    scrape_status.get("returned_bs_date")
+    or scrape_status.get("scrape_date_bs")
+    or scrape_status.get("latest_bs_date")
+)
+
+latest_scrape_rows = scrape_status.get("today_rows")
+if latest_scrape_rows is None:
+    latest_scrape_rows = scrape_status.get("rows_fetched_today")
+if latest_scrape_rows is None:
+    latest_scrape_rows = scrape_status.get("rows")
+
+history_not_modified = False
+if "history_file_modified" in scrape_status:
+    history_not_modified = scrape_status.get("history_file_modified") is False
+elif "history_modified" in scrape_status:
+    history_not_modified = scrape_status.get("history_modified") is False
+elif "history_updated" in scrape_status:
+    history_not_modified = scrape_status.get("history_updated") is False
+
+if latest_scrape_rows == 0 or (
+    history_not_modified
+    and latest_scrape_bs_date
+    and latest_saved_bs_date
+    and latest_scrape_bs_date != latest_saved_bs_date
+):
+    if latest_scrape_bs_date and latest_saved_bs_date and latest_scrape_bs_date != latest_saved_bs_date:
+        st.warning(
+            f"Latest scrape returned no usable rows for {latest_scrape_bs_date}. Showing last saved market date: {latest_saved_bs_date}."
+        )
+    else:
+        st.warning(
+            f"Latest scrape returned no usable rows. Showing last saved market date: {latest_saved_bs_date}."
+        )
+
 st.divider()
 st.header("Selected Date Explorer")
 st.caption(
