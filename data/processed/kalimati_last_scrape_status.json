@@ -1,12 +1,12 @@
 {
-  "scrape_ran_at_utc": "2026-04-04T03:43:17.540286+00:00",
+  "scrape_ran_at_utc": "2026-04-05T04:10:48.520792+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "चैत २१, २०८२",
-  "row_count": 0,
-  "wrote_outputs": false,
-  "history_rows_after_run": 364238,
-  "daily_csv_updated": false,
-  "history_updated": false,
-  "status": "no_data"
+  "returned_bs_date": "चैत २२, २०८२",
+  "row_count": 106,
+  "wrote_outputs": true,
+  "history_rows_after_run": 364344,
+  "daily_csv_updated": true,
+  "history_updated": true,
+  "status": "saved"
 }
