@@ -1,10 +1,10 @@
 # Kalimati Market Brief
 
-- Latest saved BS date: **चैत २३, २०८२**
-- Latest saved AD date: **2026-04-06**
+- Latest saved BS date: **चैत २४, २०८२**
+- Latest saved AD date: **2026-04-07**
 - Latest date confidence band: **current_live**
 - Total items: **104**
-- Average market price: **Rs. 139.01**
+- Average market price: **Rs. 138.25**
 
 ## Historical confidence notes
 
@@ -17,7 +17,7 @@
 - low_confidence_historical: **21233** rows
 - medium_confidence_historical: **12474** rows
 - stronger_historical: **325763** rows
-- current_live: **4978** rows
+- current_live: **5082** rows
 
 ## Daily highlights
 
@@ -36,7 +36,7 @@
 - अंगुर(कालो) (केजी): Rs. 340.00
 - अनार (केजी): Rs. 335.00
 - ताजा माछा(रहु) (केजी): Rs. 330.00
-- च्याउ(डल्ले) (केजी): Rs. 324.29
+- ताजा माछा(छडी) (केजी): Rs. 310.00
 
 ## Top anomaly watchlist
 
@@ -44,22 +44,22 @@
 - Spike: परवर(लोकल) (केजी) | current Rs. 226.67 | 7-day median Rs. 88.33 | change 156.62% | confidence stronger_historical
 - Spike: नासपाती(लोकल) (केजी) | current Rs. 127.50 | 7-day median Rs. 55.00 | change 131.82% | confidence stronger_historical
 - Spike: सुकेको प्याज (चाइनिज) (केजी) | current Rs. 122.50 | 7-day median Rs. 62.50 | change 96.00% | confidence stronger_historical
-- Spike: काक्रो(लोकलक्रस) (केजी) | current Rs. 35.00 | 7-day median Rs. 20.00 | change 75.00% | confidence current_live
+- Spike: भटमासकोशा (केजी) | current Rs. 175.00 | 7-day median Rs. 110.00 | change 59.09% | confidence stronger_historical
 - Drop: लीच्ची(लोकल) (केजी) | current Rs. 105.00 | 7-day median Rs. 254.00 | change -58.66% | confidence stronger_historical
 - Drop: बन्दा(तराई) (केजी) | current Rs. 17.50 | 7-day median Rs. 30.00 | change -41.67% | confidence current_live
 - Drop: आँप(कलकत्ते) (केजी) | current Rs. 135.00 | 7-day median Rs. 190.00 | change -28.95% | confidence stronger_historical
 - Drop: गोलभेडा ठूलो(नेपाली) (केजी) | current Rs. 75.00 | 7-day median Rs. 105.00 | change -28.57% | confidence stronger_historical
-- Drop: लीच्ची(भारतीय) (केजी) | current Rs. 162.50 | 7-day median Rs. 204.00 | change -20.34% | confidence stronger_historical
+- Drop: घिरौला (केजी) | current Rs. 65.00 | 7-day median Rs. 90.00 | change -27.78% | confidence current_live
 
 ## Top forecast watchlist
 
-- Upward reversion: गुन्दुक (केजी) | latest Rs. 265.00 | baseline forecast Rs. 310.00 | delta 45.00 | confidence current_live
+- Upward reversion: च्याउ(डल्ले) (केजी) | latest Rs. 275.00 | baseline forecast Rs. 325.00 | delta 50.00 | confidence current_live
 - Upward reversion: लसुन सुकेको नेपाली (केजी) | latest Rs. 145.00 | baseline forecast Rs. 175.00 | delta 30.00 | confidence current_live
+- Upward reversion: भेडे खु्र्सानी (केजी) | latest Rs. 98.00 | baseline forecast Rs. 125.00 | delta 27.00 | confidence current_live
 - Upward reversion: कुरीलो (केजी) | latest Rs. 375.00 | baseline forecast Rs. 400.00 | delta 25.00 | confidence current_live
-- Upward reversion: भेडे खु्र्सानी (केजी) | latest Rs. 100.00 | baseline forecast Rs. 125.00 | delta 25.00 | confidence current_live
-- Upward reversion: भिण्डी (केजी) | latest Rs. 95.00 | baseline forecast Rs. 110.00 | delta 15.00 | confidence current_live
+- Upward reversion: गुन्दुक (केजी) | latest Rs. 265.00 | baseline forecast Rs. 290.00 | delta 25.00 | confidence current_live
 - Downward reversion: किवि (केजी) | latest Rs. 425.00 | baseline forecast Rs. 350.00 | delta -75.00 | confidence current_live
-- Downward reversion: ताजा माछा(छडी) (केजी) | latest Rs. 310.00 | baseline forecast Rs. 240.00 | delta -70.00 | confidence current_live
 - Downward reversion: कागती (केजी) | latest Rs. 250.00 | baseline forecast Rs. 220.00 | delta -30.00 | confidence current_live
-- Downward reversion: च्याउ(कन्य) (केजी) | latest Rs. 160.00 | baseline forecast Rs. 130.00 | delta -30.00 | confidence current_live
-- Downward reversion: खु्र्सानी सुकेको (केजी) | latest Rs. 425.00 | baseline forecast Rs. 400.00 | delta -25.00 | confidence current_live
+- Downward reversion: च्याउ(कन्य) (केजी) | latest Rs. 165.00 | baseline forecast Rs. 140.00 | delta -25.00 | confidence current_live
+- Downward reversion: कोइरालो (केजी) | latest Rs. 265.00 | baseline forecast Rs. 252.50 | delta -12.50 | confidence current_live
+- Downward reversion: हरियो धनिया (केजी) | latest Rs. 102.50 | baseline forecast Rs. 90.00 | delta -12.50 | confidence current_live
