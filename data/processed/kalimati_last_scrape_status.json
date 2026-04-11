@@ -1,11 +1,11 @@
 {
-  "scrape_ran_at_utc": "2026-04-10T04:18:57.235526+00:00",
+  "scrape_ran_at_utc": "2026-04-11T03:47:36.335710+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "चैत २७, २०८२",
-  "row_count": 102,
+  "returned_bs_date": "चैत २८, २०८२",
+  "row_count": 99,
   "wrote_outputs": true,
-  "history_rows_after_run": 364863,
+  "history_rows_after_run": 364962,
   "daily_csv_updated": true,
   "history_updated": true,
   "status": "saved"
