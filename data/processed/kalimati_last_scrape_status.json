@@ -1,11 +1,11 @@
 {
-  "scrape_ran_at_utc": "2026-04-18T04:05:23.713518+00:00",
+  "scrape_ran_at_utc": "2026-04-20T04:30:47.597341+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "बैशाख ०५, २०८३",
+  "returned_bs_date": "बैशाख ०७, २०८३",
   "row_count": 99,
   "wrote_outputs": true,
-  "history_rows_after_run": 365653,
+  "history_rows_after_run": 365752,
   "daily_csv_updated": true,
   "history_updated": true,
   "status": "saved"
