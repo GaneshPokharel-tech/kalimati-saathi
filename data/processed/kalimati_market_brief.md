@@ -1,10 +1,10 @@
 # Kalimati Market Brief
 
-- Latest saved BS date: **बैशाख ०९, २०८३**
-- Latest saved AD date: **2026-04-22**
+- Latest saved BS date: **बैशाख १०, २०८३**
+- Latest saved AD date: **2026-04-23**
 - Latest date confidence band: **current_live**
-- Total items: **95**
-- Average market price: **Rs. 136.65**
+- Total items: **97**
+- Average market price: **Rs. 142.65**
 
 ## Historical confidence notes
 
@@ -17,7 +17,7 @@
 - low_confidence_historical: **21233** rows
 - medium_confidence_historical: **12474** rows
 - stronger_historical: **325763** rows
-- current_live: **6472** rows
+- current_live: **6569** rows
 
 ## Daily highlights
 
@@ -29,14 +29,14 @@
 
 - सिताके च्याउ (केजी): Rs. 900.00
 - माछा सुकेको (केजी): Rs. 900.00
+- आभोकाडो (केजी): Rs. 750.00
+- खुर्सानी हरियो(अकबरे) (केजी): Rs. 450.00
 - खु्र्सानी सुकेको (केजी): Rs. 425.00
+- किवि (केजी): Rs. 425.00
 - कुरीलो (केजी): Rs. 400.00
-- किवि (केजी): Rs. 390.00
-- कागती (केजी): Rs. 377.50
-- खुर्सानी हरियो(अकबरे) (केजी): Rs. 375.00
+- अनार (केजी): Rs. 390.00
+- कागती (केजी): Rs. 380.00
 - अंगुर(कालो) (केजी): Rs. 370.00
-- अनार (केजी): Rs. 335.00
-- ताजा माछा(रहु) (केजी): Rs. 330.00
 
 ## Top anomaly watchlist
 
@@ -44,22 +44,22 @@
 - Spike: नासपाती(लोकल) (केजी) | current Rs. 127.50 | 7-day median Rs. 55.00 | change 131.82% | confidence stronger_historical
 - Spike: सुकेको प्याज (चाइनिज) (केजी) | current Rs. 122.50 | 7-day median Rs. 62.50 | change 96.00% | confidence stronger_historical
 - Spike: भुई कटहर (प्रति गोटा) | current Rs. 235.00 | 7-day median Rs. 155.00 | change 51.61% | confidence current_live
-- Spike: बकूला (केजी) | current Rs. 65.00 | 7-day median Rs. 45.00 | change 44.44% | confidence current_live
-- Drop: घिउ सिमी(लोकल) (केजी) | current Rs. 19.17 | 7-day median Rs. 50.00 | change -61.66% | confidence current_live
-- Drop: हरियो फर्सी(डल्लो) (केजी) | current Rs. 17.50 | 7-day median Rs. 42.50 | change -58.82% | confidence current_live
+- Spike: तितो करेला (केजी) | current Rs. 80.00 | 7-day median Rs. 55.00 | change 45.45% | confidence current_live
 - Drop: लीच्ची(लोकल) (केजी) | current Rs. 105.00 | 7-day median Rs. 254.00 | change -58.66% | confidence stronger_historical
-- Drop: लौका (केजी) | current Rs. 13.75 | 7-day median Rs. 30.00 | change -54.17% | confidence current_live
-- Drop: तितो करेला (केजी) | current Rs. 32.50 | 7-day median Rs. 70.00 | change -53.57% | confidence current_live
+- Drop: बोडी(तने) (केजी) | current Rs. 44.17 | 7-day median Rs. 77.50 | change -43.01% | confidence current_live
+- Drop: काक्रो(हाइब्रीड) (केजी) | current Rs. 12.50 | 7-day median Rs. 20.00 | change -37.50% | confidence current_live
+- Drop: काउली स्थानिय (केजी) | current Rs. 25.00 | 7-day median Rs. 40.00 | change -37.50% | confidence current_live
+- Drop: घिरौला (केजी) | current Rs. 23.75 | 7-day median Rs. 37.50 | change -36.67% | confidence current_live
 
 ## Top forecast watchlist
 
 - Upward reversion: च्याउ(डल्ले) (केजी) | latest Rs. 325.00 | baseline forecast Rs. 375.00 | delta 50.00 | confidence current_live
-- Upward reversion: भटमासकोशा (केजी) | latest Rs. 180.00 | baseline forecast Rs. 215.00 | delta 35.00 | confidence current_live
-- Upward reversion: बोडी(तने) (केजी) | latest Rs. 42.50 | baseline forecast Rs. 77.50 | delta 35.00 | confidence current_live
-- Upward reversion: सौफको साग (केजी) | latest Rs. 75.00 | baseline forecast Rs. 105.00 | delta 30.00 | confidence current_live
-- Upward reversion: मेथीको साग (केजी) | latest Rs. 75.00 | baseline forecast Rs. 105.00 | delta 30.00 | confidence current_live
+- Upward reversion: भटमासकोशा (केजी) | latest Rs. 168.00 | baseline forecast Rs. 212.50 | delta 44.50 | confidence current_live
+- Upward reversion: कोइरालो (केजी) | latest Rs. 282.50 | baseline forecast Rs. 317.50 | delta 35.00 | confidence current_live
+- Upward reversion: लसुन हरियो (केजी) | latest Rs. 70.00 | baseline forecast Rs. 105.00 | delta 35.00 | confidence current_live
+- Upward reversion: भेडे खु्र्सानी (केजी) | latest Rs. 75.00 | baseline forecast Rs. 95.00 | delta 20.00 | confidence current_live
+- Downward reversion: खुर्सानी हरियो(अकबरे) (केजी) | latest Rs. 450.00 | baseline forecast Rs. 365.00 | delta -85.00 | confidence current_live
 - Downward reversion: भुई कटहर (प्रति गोटा) | latest Rs. 235.00 | baseline forecast Rs. 155.00 | delta -80.00 | confidence current_live
-- Downward reversion: केरा (दर्जन) | latest Rs. 275.00 | baseline forecast Rs. 225.00 | delta -50.00 | confidence current_live
-- Downward reversion: कागती (केजी) | latest Rs. 377.50 | baseline forecast Rs. 336.67 | delta -40.83 | confidence current_live
-- Downward reversion: सेलरी (केजी) | latest Rs. 170.00 | baseline forecast Rs. 135.00 | delta -35.00 | confidence current_live
-- Downward reversion: अंगुर(कालो) (केजी) | latest Rs. 370.00 | baseline forecast Rs. 340.00 | delta -30.00 | confidence current_live
+- Downward reversion: आभोकाडो (केजी) | latest Rs. 750.00 | baseline forecast Rs. 700.00 | delta -50.00 | confidence current_live
+- Downward reversion: किवि (केजी) | latest Rs. 425.00 | baseline forecast Rs. 375.00 | delta -50.00 | confidence current_live
+- Downward reversion: च्याउ(कन्य) (केजी) | latest Rs. 192.50 | baseline forecast Rs. 150.00 | delta -42.50 | confidence current_live
