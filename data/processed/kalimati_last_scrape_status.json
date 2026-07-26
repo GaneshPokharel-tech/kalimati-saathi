@@ -1,11 +1,11 @@
 {
-  "scrape_ran_at_utc": "2026-07-25T04:29:22.102353+00:00",
+  "scrape_ran_at_utc": "2026-07-26T04:43:19.840121+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "साउन ०९, २०८३",
-  "row_count": 96,
+  "returned_bs_date": "साउन १०, २०८३",
+  "row_count": 95,
   "wrote_outputs": true,
-  "history_rows_after_run": 373542,
+  "history_rows_after_run": 373637,
   "daily_csv_updated": true,
   "history_updated": true,
   "status": "saved"
