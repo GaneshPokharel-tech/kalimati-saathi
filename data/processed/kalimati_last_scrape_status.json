@@ -1,12 +1,12 @@
 {
-  "scrape_ran_at_utc": "2026-08-08T03:01:19.126077+00:00",
+  "scrape_ran_at_utc": "2026-08-09T03:08:26.321940+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "साउन २३, २०८३",
-  "row_count": 99,
-  "wrote_outputs": true,
+  "returned_bs_date": "साउन २४, २०८३",
+  "row_count": 0,
+  "wrote_outputs": false,
   "history_rows_after_run": 374725,
-  "daily_csv_updated": true,
-  "history_updated": true,
-  "status": "saved"
+  "daily_csv_updated": false,
+  "history_updated": false,
+  "status": "no_data"
 }
