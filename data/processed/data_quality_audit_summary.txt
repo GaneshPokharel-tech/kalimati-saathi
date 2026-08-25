@@ -1,9 +1,9 @@
 Kalimati Saathi Data Quality Audit
 ============================================================
-Total rows: 375944
-Unique BS dates: 4525
-Latest BS date by sort_date: भदौ ०८, २०८३
-Rows on latest BS date: 103
+Total rows: 376049
+Unique BS dates: 4526
+Latest BS date by sort_date: भदौ ०९, २०८३
+Rows on latest BS date: 105
 
 History confidence summary
 ------------------------------------------------------------
@@ -11,11 +11,11 @@ History confidence summary
    low_confidence_historical  21233
 medium_confidence_historical  12474
          stronger_historical 325763
-                current_live  16474
+                current_live  16579
 
 Null summary
 ------------------------------------------------------------
-requested_date_ad: 13081
+requested_date_ad: 13186
 fetched_at_utc: 0
 scrape_date_bs: 0
 commodity: 0
@@ -39,15 +39,15 @@ Rows with zero/negative min|max|avg: 137
 Unit distribution (all history)
 ------------------------------------------------------------
       unit   rows
-      केजी 365855
-     दर्जन   4590
-प्रति गोटा   4321
+      केजी 365957
+     दर्जन   4592
+प्रति गोटा   4322
  प्रति वटा    646
     के‍.जी    532
 
 Unit distribution (latest date)
 ------------------------------------------------------------
       unit  rows
-      केजी   100
+      केजी   102
      दर्जन     2
 प्रति गोटा     1

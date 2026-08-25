@@ -1,10 +1,10 @@
 # Kalimati Market Brief
 
-- Latest saved BS date: **भदौ ०८, २०८३**
-- Latest saved AD date: **2026-08-24**
+- Latest saved BS date: **भदौ ०९, २०८३**
+- Latest saved AD date: **2026-08-25**
 - Latest date confidence band: **current_live**
-- Total items: **103**
-- Average market price: **Rs. 187.72**
+- Total items: **105**
+- Average market price: **Rs. 184.12**
 
 ## Historical confidence notes
 
@@ -17,13 +17,13 @@
 - low_confidence_historical: **21233** rows
 - medium_confidence_historical: **12474** rows
 - stronger_historical: **325763** rows
-- current_live: **16474** rows
+- current_live: **16579** rows
 
 ## Daily highlights
 
 - Most expensive: **पार्सले** (केजी) at **Rs. 1700.00**
 - Cheapest: **काक्रो(हाइब्रीड)** (केजी) at **Rs. 15.00**
-- Widest spread: **सिताके च्याउ** (केजी) with spread **Rs. 200.00**
+- Widest spread: **पार्सले** (केजी) with spread **Rs. 200.00**
 
 ## Top 10 expensive items
 
@@ -34,9 +34,9 @@
 - खु्र्सानी सुकेको (केजी): Rs. 525.00
 - च्याउ(डल्ले) (केजी): Rs. 475.00
 - कुरीलो (केजी): Rs. 450.00
+- सेलरी (केजी): Rs. 450.00
 - जिरीको साग (केजी): Rs. 450.00
 - ड्रागन फ्रुट(नेपाली) (केजी): Rs. 450.00
-- सेलरी (केजी): Rs. 450.00
 
 ## Top anomaly watchlist
 
@@ -46,20 +46,20 @@
 - Spike: सेलरी (केजी) | current Rs. 450.00 | 7-day median Rs. 225.00 | change 100.00% | confidence current_live
 - Spike: सुकेको प्याज (चाइनिज) (केजी) | current Rs. 122.50 | 7-day median Rs. 62.50 | change 96.00% | confidence stronger_historical
 - Drop: गोलभेडा सानो(तराई) (केजी) | current Rs. 22.50 | 7-day median Rs. 45.00 | change -50.00% | confidence current_live
-- Drop: गोलभेडा सानो(भारतीय) (केजी) | current Rs. 27.50 | 7-day median Rs. 55.00 | change -50.00% | confidence current_live
-- Drop: आभोकाडो (केजी) | current Rs. 225.00 | 7-day median Rs. 450.00 | change -50.00% | confidence current_live
+- Drop: भन्टा लाम्चो (केजी) | current Rs. 19.00 | 7-day median Rs. 35.00 | change -45.71% | confidence current_live
+- Drop: बन्दा(लोकल) (केजी) | current Rs. 25.00 | 7-day median Rs. 44.38 | change -43.67% | confidence current_live
+- Drop: आभोकाडो (केजी) | current Rs. 225.00 | 7-day median Rs. 375.00 | change -40.00% | confidence current_live
 - Drop: सुन्तला(नेपाली) (केजी) | current Rs. 105.00 | 7-day median Rs. 175.00 | change -40.00% | confidence current_live
-- Drop: जुनार (केजी) | current Rs. 175.00 | 7-day median Rs. 285.00 | change -38.60% | confidence current_live
 
 ## Top forecast watchlist
 
 - Upward reversion: आभोकाडो (केजी) | latest Rs. 225.00 | baseline forecast Rs. 375.00 | delta 150.00 | confidence current_live
 - Upward reversion: जुनार (केजी) | latest Rs. 175.00 | baseline forecast Rs. 285.00 | delta 110.00 | confidence current_live
 - Upward reversion: अनार (केजी) | latest Rs. 275.00 | baseline forecast Rs. 325.00 | delta 50.00 | confidence current_live
-- Upward reversion: रायो साग (केजी) | latest Rs. 100.00 | baseline forecast Rs. 125.00 | delta 25.00 | confidence current_live
-- Upward reversion: रुख टमाटर (केजी) | latest Rs. 275.00 | baseline forecast Rs. 290.00 | delta 15.00 | confidence current_live
+- Upward reversion: रुख टमाटर (केजी) | latest Rs. 250.00 | baseline forecast Rs. 290.00 | delta 40.00 | confidence current_live
+- Upward reversion: बन्दा(लोकल) (केजी) | latest Rs. 25.00 | baseline forecast Rs. 44.38 | delta 19.38 | confidence current_live
 - Downward reversion: पार्सले (केजी) | latest Rs. 1700.00 | baseline forecast Rs. 1450.00 | delta -250.00 | confidence current_live
 - Downward reversion: सेलरी (केजी) | latest Rs. 450.00 | baseline forecast Rs. 225.00 | delta -225.00 | confidence current_live
 - Downward reversion: पुदीना (केजी) | latest Rs. 650.00 | baseline forecast Rs. 450.00 | delta -200.00 | confidence current_live
-- Downward reversion: हरियो धनिया (केजी) | latest Rs. 430.00 | baseline forecast Rs. 350.00 | delta -80.00 | confidence current_live
 - Downward reversion: नासपाती(चाइनिज) (केजी) | latest Rs. 225.00 | baseline forecast Rs. 175.00 | delta -50.00 | confidence current_live
+- Downward reversion: स्याउ(फूजी) (केजी) | latest Rs. 325.00 | baseline forecast Rs. 290.00 | delta -35.00 | confidence current_live
