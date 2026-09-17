@@ -8843,6 +8843,7 @@
 ,"चैत २४, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"चैत २५, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"चैत २६, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
+,"असोज ०१, २०८३",पार्सले,केजी,2400.0,2600.0,2500.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०१, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०२, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०३, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
@@ -8877,6 +8878,7 @@
 ,"साउन २९, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"साउन ३०, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"साउन ३१, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
+,"असोज ०१, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २०, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २२, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २४, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
@@ -8905,6 +8907,7 @@
 ,"असार ३०, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"असार ३१, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"असार ३२, २०८३",माछा सुकेको,केजी,800.0,1000.0,883.33,statistical_outlier,True,True,flag_for_review
+,"असोज ०१, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०७, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०९, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत १०, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
@@ -9026,6 +9029,7 @@
 ,"असार ३०, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"असार ३१, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"असार ३२, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
+,"असोज ०१, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०७, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०९, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत १०, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
