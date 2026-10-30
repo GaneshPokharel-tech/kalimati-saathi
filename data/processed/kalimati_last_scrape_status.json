@@ -1,12 +1,12 @@
 {
-  "scrape_ran_at_utc": "2026-10-29T07:07:35.588293+00:00",
+  "scrape_ran_at_utc": "2026-10-30T07:08:24.371721+00:00",
   "requested_date_ad": null,
   "requested_mode": "latest_page",
-  "returned_bs_date": "कार्तिक १२, २०८३",
-  "row_count": 0,
-  "wrote_outputs": false,
-  "history_rows_after_run": 381985,
-  "daily_csv_updated": false,
-  "history_updated": false,
-  "status": "no_data"
+  "returned_bs_date": "कार्तिक १३, २०८३",
+  "row_count": 114,
+  "wrote_outputs": true,
+  "history_rows_after_run": 382099,
+  "daily_csv_updated": true,
+  "history_updated": true,
+  "status": "saved"
 }
