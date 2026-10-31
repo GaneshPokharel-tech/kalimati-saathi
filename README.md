@@ -1,256 +1,562 @@
-# 🥦 Kalimati Saathi
 
-**Vegetable price intelligence for Nepal — powered by Kalimati market data.**
+# Kalimati Saathi
 
-Kalimati Saathi scrapes daily commodity prices from [Kalimati Fruits & Vegetables Market](https://kalimatimarket.gov.np/price), builds a clean historical archive dating back to 2014, runs anomaly detection and forecasting, and surfaces everything in an interactive Streamlit dashboard.
+### Vegetable Price Intelligence & Market Analytics for Nepal
 
----
+Kalimati Saathi is a Python-based data engineering and analytics application that collects vegetable and fruit prices from the Kalimati market, maintains historical price records, identifies unusual price movements, and visualises market trends.
 
-## Features
+The project combines **web scraping, data validation, time-series analysis, anomaly detection, baseline forecasting, SQLite, Streamlit, and automated data pipelines**.
 
-- **Daily scraper** — fetches min/max/avg prices for 80+ commodities with Nepali-script normalization and CSRF handling
-- **363,000+ historical rows** — backfilled from 2014 through today, deduplicated and quality-audited
-- **4-tier confidence bands** — `low_confidence_historical`, `medium_confidence_historical`, `stronger_historical`, `current_live`
-- **Anomaly detection** — 7-day rolling median baseline; flags price spikes and drops by percentage deviation
-- **Forecast baseline** — rolling 7-day median next-day forecast for every active commodity series
-- **Policy flag engine** — per-date row-depth severity (critical_low / low / normal) and per-row price-quality flags (invalid logic, zero prices, IQR×3 outliers)
-- **Market brief** — auto-generated Markdown summary of current market conditions
-- **Commodity normalization audit** — exact-match and fuzzy-match grouping of variant commodity names
-- **Data quality audit** — coverage report, backfill status, confidence-band breakdown
-- **SQLite store** — all processed artifacts loaded into a single `kalimati.db` for fast dashboard queries
-- **Interactive dashboard** — dark-themed Streamlit app with 6 tabs, Altair charts, KPI cards, and CSV exports
-- **Automated pipeline** — GitHub Actions runs the full pipeline daily at 01:15 UTC and commits updated artifacts
+It was developed to explore how publicly available agricultural market data can be transformed into structured, accessible, and interpretable analytics.
+
+> **Project Focus:** Python · Data Engineering · Time-Series Analytics · Workflow Automation
 
 ---
 
-## Dashboard
+## Overview
 
-Six tabs covering the full picture:
+Kalimati Saathi processes daily commodity prices published by the Kalimati Fruits and Vegetables Market.
 
-| Tab | What you get |
-|-----|-------------|
-| **Overview** | Latest market brief, top-10 price chart, pipeline status |
-| **Price Explorer** | Date selector, unit/commodity filters, day-over-day comparison table |
-| **Anomaly Watchlist** | Scatter plot (current vs baseline), top spikes and drops |
-| **Forecast** | Next-day forecast deltas, upward/downward revision rankings |
-| **Commodity Trends** | Historical price line + min/max band for any commodity |
-| **Data Quality** | Row-depth severity chart, price-quality issue breakdown, source audit |
+The documented dataset includes:
+
+| Area | Project Scope |
+| :--- | :--- |
+| Commodities | 80+ |
+| Historical Records | 363,000+ reported rows |
+| Historical Coverage | Backfilled market records, including early sparse data |
+| Analytics | Anomaly detection, trend analysis, baseline forecasting |
+| Storage | SQLite |
+| Dashboard | Streamlit + Altair |
+| Automation | GitHub Actions and optional local cron |
+
+The application is designed to provide descriptive market insights while making data quality and historical coverage visible to users.
 
 ---
 
-## Project Structure
+## System Architecture
 
-```
-kalimati-saathi/
-├── scraper/
-│   ├── fetch_kalimati_prices.py      # Daily price scraper (CSRF-aware POST)
-│   └── backfill_kalimati_history.py  # Historical backfill for a date range
-│
-├── analysis/
-│   ├── history_confidence.py         # Assigns confidence bands to every row
-│   ├── anomaly_report.py             # 7-day median anomaly detection
-│   ├── forecast_baseline.py          # Rolling median next-day forecast
-│   ├── generate_policy_flags.py      # Row-depth + price-quality policy flags
-│   ├── generate_market_brief.py      # Auto-generated market brief (Markdown)
-│   ├── commodity_normalization_audit.py  # Exact + fuzzy name deduplication
-│   ├── data_quality_audit.py         # Coverage and confidence-band audit
-│   └── trend_report.py               # Per-commodity trend summaries
-│
-├── storage/
-│   └── load_history_to_sqlite.py     # Load all CSVs into kalimati.db
-│
-├── dashboard/
-│   └── app.py                        # Streamlit dashboard (6 tabs, dark theme)
-│
-├── ops/
-│   ├── smoke_test_pipeline.py        # Post-run validation checks
-│   ├── install_cron.sh               # Install local cron job
-│   └── kalimati_crontab.txt          # Cron schedule (07:05 local time)
-│
-├── data/
-│   ├── raw/                          # Daily raw CSV from scraper
-│   ├── processed/                    # Clean CSVs, SQLite DB, JSON status files
-│   └── archive/                      # Per-date HTML snapshots
-│
-├── .github/workflows/
-│   └── daily_pipeline.yml            # GitHub Actions: runs at 01:15 UTC daily
-│
-├── run_daily_pipeline.py             # Orchestrator — runs all steps in order
-├── run_daily_pipeline.sh             # Shell wrapper with logging
-└── requirements.txt
+```mermaid
+flowchart TD
+    A["Kalimati Market Data"] --> B["Daily Scraper"]
+    B --> C["Raw CSV Archive"]
+
+    C --> D["Data Cleaning and Normalisation"]
+
+    D --> E["Analysis Pipeline"]
+
+    E --> F["Anomaly Detection"]
+    E --> G["Forecast Baseline"]
+    E --> H["Data Quality Checks"]
+
+    F --> I["Processed Artifacts"]
+    G --> I
+    H --> I
+
+    I --> J["SQLite Database"]
+    J --> K["Streamlit Dashboard"]
 ```
 
+The pipeline separates data collection, validation, analytical processing, and presentation.
+
+This structure allows individual stages to be executed and checked independently.
+
 ---
 
-## Quick Start
+## Core Features
 
-### 1. Clone and install
+### 1. Automated Market Data Collection
 
-```bash
-git clone https://github.com/GaneshPokharel-tech/kalimati-saathi.git
-cd kalimati-saathi
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
+The scraper collects daily commodity prices from the Kalimati market website.
 
-### 2. Run the full pipeline
+The documented implementation handles:
+
+- Minimum, maximum, and average prices
+- 80+ commodities
+- Nepali-script commodity names
+- CSRF-aware requests
+- Historical date-based collection
+- Raw data archiving
+
+Historical collection is supported through a separate backfill script.
+
+### 2. Historical Data Processing
+
+The project maintains a historical dataset containing more than 363,000 reported price records.
+
+Processing includes:
+
+- Historical data consolidation
+- Duplicate handling
+- Commodity name normalisation
+- Data quality checks
+- Coverage assessment
+- Date-specific processing
+
+The dataset uses confidence categories to distinguish records with different levels of historical coverage.
+
+### 3. Anomaly Detection
+
+The anomaly detection workflow compares commodity prices with a rolling seven-day median baseline.
+
+It identifies unusual price increases and decreases using percentage deviations.
+
+This provides a simple, interpretable method for highlighting price movements that may deserve closer examination.
+
+An anomaly is a statistical signal, not proof of market manipulation or incorrect pricing.
+
+### 4. Baseline Price Forecasting
+
+The application generates next-day price estimates using a rolling seven-day median baseline.
+
+The baseline supports:
+
+- Next-day reference values
+- Forecast comparisons
+- Upward and downward change rankings
+- Commodity-level analysis
+
+This is a statistical baseline, not a trained predictive model.
+
+Forecast outputs should not be interpreted as guaranteed future market prices.
+
+### 5. Data Quality and Confidence Assessment
+
+The system evaluates historical coverage and record-level quality.
+
+Checks include:
+
+- Missing or limited daily coverage
+- Invalid price relationships
+- Zero or negative prices
+- Statistical outliers
+- Commodity naming inconsistencies
+- Historical confidence categories
+
+### 6. Automated Market Brief
+
+The analysis pipeline generates a Markdown summary of current market conditions.
+
+This provides a compact overview of the processed market information.
+
+---
+
+## Interactive Dashboard
+
+The Streamlit application organises market analytics into six tabs.
+
+| Dashboard Tab | Function |
+| :--- | :--- |
+| **Overview** | Market brief, leading price chart, and pipeline status |
+| **Price Explorer** | Commodity filters, date selection, and day-over-day comparisons |
+| **Anomaly Watchlist** | Price deviations, spikes, and drops |
+| **Forecast** | Next-day baseline estimates and change rankings |
+| **Commodity Trends** | Historical price charts with minimum and maximum ranges |
+| **Data Quality** | Coverage severity, quality issues, and source audits |
+
+The interface includes Altair visualisations, KPI cards, and CSV export functionality.
+
+---
+
+## Technology Stack
+
+| Technology | Purpose |
+| :--- | :--- |
+| Python | Data collection and processing |
+| Requests | HTTP requests |
+| Beautiful Soup | HTML parsing |
+| lxml | Document parsing |
+| Pandas | Data transformation and analysis |
+| Scikit-learn | Supporting analytical utilities |
+| SQLite | Local structured data storage |
+| Streamlit | Interactive dashboard |
+| Altair | Charts and visualisations |
+| GitHub Actions | Scheduled pipeline automation |
+
+The project uses lightweight statistical methods and does not require a GPU.
+
+---
+
+## Data Pipeline
+
+The main workflow is orchestrated through:
 
 ```bash
 python run_daily_pipeline.py
 ```
 
-This runs all steps in order:
-1. Scrape today's prices
-2. Anomaly report
-3. Forecast baseline
-4. Market brief
-5. Commodity normalization audit
-6. Data quality audit
-7. Policy flag generation
-8. Write pipeline status JSON
-9. Load everything into SQLite
-10. Smoke test (validates all outputs)
+### Pipeline Stages
 
-### 3. Launch the dashboard
+1. Fetch daily market prices.
+2. Process and validate collected records.
+3. Generate anomaly reports.
+4. Calculate the forecasting baseline.
+5. Generate a market brief.
+6. Audit commodity name normalisation.
+7. Generate data quality reports.
+8. Apply internal quality flags.
+9. Update pipeline status artifacts.
+10. Load processed data into SQLite.
+11. Run post-processing smoke tests.
+
+Individual scripts can also be executed separately for development and validation.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10+
+- pip
+- Internet connection for fresh data collection
+
+### 1. Clone the Repository
 
 ```bash
-cd kalimati-saathi          # must run from project root
+git clone https://github.com/GaneshPokharel-tech/kalimati-saathi.git
+cd kalimati-saathi
+```
+
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it on macOS or Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+On Windows:
+
+```powershell
+.venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Run the Data Pipeline
+
+From the project root:
+
+```bash
+python run_daily_pipeline.py
+```
+
+### 5. Launch the Dashboard
+
+```bash
 streamlit run dashboard/app.py
 ```
 
-Open `http://localhost:8501` in your browser.
+Open the local URL displayed by Streamlit, usually:
 
-### 4. Backfill historical data (optional)
-
-```bash
-# Fetch a specific date
-python scraper/fetch_kalimati_prices.py --date 2025-01-15
-
-# Backfill a range (script handles YYYY-MM-DD to YYYY-MM-DD)
-python scraper/backfill_kalimati_history.py
+```text
+http://localhost:8501
 ```
 
 ---
 
-## Running Individual Analysis Steps
+## Historical Data Collection
+
+### Fetch a Specific Date
 
 ```bash
-# Anomaly report
+python scraper/fetch_kalimati_prices.py --date 2025-01-15
+```
+
+### Run Historical Backfill
+
+```bash
+python scraper/backfill_kalimati_history.py
+```
+
+The backfill script processes the configured historical date range.
+
+Historical collection can take time depending on the selected period and source availability.
+
+---
+
+## Individual Analysis Commands
+
+### Anomaly Detection
+
+```bash
 python -m analysis.anomaly_report
+```
 
-# Forecast baseline
+### Forecast Baseline
+
+```bash
 python -m analysis.forecast_baseline
+```
 
-# Policy flags (row-depth + price-quality)
+### Internal Quality Flags
+
+```bash
 python -m analysis.generate_policy_flags
+```
 
-# Market brief
+### Market Brief
+
+```bash
 python -m analysis.generate_market_brief
+```
 
-# Commodity normalization audit
+### Commodity Normalisation Audit
+
+```bash
 python -m analysis.commodity_normalization_audit
+```
 
-# Data quality audit
+### Data Quality Audit
+
+```bash
 python -m analysis.data_quality_audit
+```
 
-# Load all processed files into SQLite
+### Load Processed Data into SQLite
+
+```bash
 python storage/load_history_to_sqlite.py
+```
 
-# Smoke test (validates all outputs match expectations)
+### Run Pipeline Smoke Tests
+
+```bash
 python ops/smoke_test_pipeline.py
 ```
 
 ---
 
-## Automated Pipeline (GitHub Actions)
+## Historical Confidence Categories
 
-The pipeline runs automatically every day at **01:15 UTC** via `.github/workflows/daily_pipeline.yml`.
+Historical records are grouped according to their documented coverage and reliability characteristics.
 
-After a successful run it commits updated processed artifacts back to `main` with the message `Automated daily pipeline update`.
+| Category | Documented Period | Interpretation |
+| :--- | :--- | :--- |
+| `low_confidence_historical` | Nov 2013 – Oct 2014 | Sparse early records |
+| `medium_confidence_historical` | Nov 2014 – Apr 2015 | Partial historical coverage |
+| `stronger_historical` | May 2015 – Jan 2026 | Better-covered historical records |
+| `current_live` | Feb 2026 onward | Current collection period |
 
-To trigger it manually: **Actions → Daily Kalimati Pipeline → Run workflow**.
+The default anomaly detection and forecasting window uses:
 
-### Local cron (optional)
+- `stronger_historical`
+- `current_live`
 
-```bash
-bash ops/install_cron.sh   # installs a 07:05 local-time cron job
-```
+These categories are internal data quality labels, not statistical confidence intervals.
 
-Or run the shell wrapper directly (logs to `logs/`):
+---
 
-```bash
-bash run_daily_pipeline.sh
-```
+## Data Quality Rules
+
+### Daily Row Coverage
+
+The pipeline uses internal thresholds to flag dates with limited data.
+
+| Severity | Daily Rows | Treatment |
+| :--- | ---: | :--- |
+| `normal` | 30 or more | Accept |
+| `low` | 10–29 | Flag for review |
+| `critical_low` | Fewer than 10 | Exclude |
+
+### Price Quality
+
+| Issue | Detection Rule | Treatment |
+| :--- | :--- | :--- |
+| Invalid price relationship | Minimum price exceeds maximum price | Exclude |
+| Zero or negative price | Average price is zero or below | Exclude |
+| Statistical outlier | Outside IQR × 3.0 fences | Flag for review |
+
+These rules are implemented as internal data quality controls. They are not regulatory determinations.
 
 ---
 
 ## Data Model
 
-### `price_history` (363,000+ rows)
+Processed records are stored in SQLite.
 
-| Column | Description |
-|--------|-------------|
-| `requested_date_ad` | Gregorian date requested from the site |
-| `scrape_date_bs` | Bikram Sambat date returned by the page (Nepali script) |
-| `commodity` | Commodity name (Nepali script) |
-| `unit` | Unit of measure (e.g. `केजी`, `दर्जन`) |
-| `min_price` | Minimum price (Rs.) |
-| `max_price` | Maximum price (Rs.) |
-| `avg_price` | Average price (Rs.) |
-| `fetched_at_utc` | UTC timestamp of the scrape |
+The main historical dataset contains fields such as:
 
-### Confidence bands
+| Field | Description |
+| :--- | :--- |
+| `requested_date_ad` | Requested Gregorian date |
+| `scrape_date_bs` | Bikram Sambat date from the source |
+| `commodity` | Commodity name |
+| `unit` | Unit of measurement |
+| `min_price` | Minimum recorded price |
+| `max_price` | Maximum recorded price |
+| `avg_price` | Average recorded price |
+| `fetched_at_utc` | UTC collection timestamp |
 
-| Band | Date range | Meaning |
-|------|-----------|---------|
-| `low_confidence_historical` | Nov 2013 – Oct 2014 | Early backfill, sparse coverage |
-| `medium_confidence_historical` | Nov 2014 – Apr 2015 | Partial coverage |
-| `stronger_historical` | May 2015 – Jan 2026 | Good coverage, used for modelling |
-| `current_live` | Feb 2026 onward | Active live data |
-
-Only `stronger_historical` and `current_live` rows are included in the **default model window** used by anomaly detection and forecasting.
-
-### Policy flags
-
-**Row-depth flags** (`row_depth_policy_flags.csv`) — one row per scrape date:
-
-| Severity | Threshold | Action |
-|----------|-----------|--------|
-| `normal` | ≥ 30 rows | `accept` |
-| `low` | 10 – 29 rows | `flag_for_review` |
-| `critical_low` | < 10 rows | `exclude` |
-
-**Price-quality flags** (`price_quality_policy_flags.csv`) — one row per flagged commodity:
-
-| Issue | Rule | Action |
-|-------|------|--------|
-| `invalid_price_logic` | `min_price > max_price` | `exclude` |
-| `zero_or_negative_price` | `avg_price ≤ 0` | `exclude` |
-| `statistical_outlier` | Outside IQR × 3.0 fences | `flag_for_review` |
+The application also maintains processed artifacts for anomalies, forecasts, confidence labels, and data quality reporting.
 
 ---
 
-## Requirements
+## Pipeline Automation
 
-```
-pandas
-requests
-beautifulsoup4
-lxml
-streamlit
-scikit-learn
-altair==4.2.2
+The project supports automated daily processing through GitHub Actions.
+
+Workflow:
+
+```text
+.github/workflows/daily_pipeline.yml
 ```
 
-Python 3.10+ recommended. No GPU or heavy ML dependencies required.
+The documented schedule runs daily at:
+
+```text
+01:15 UTC
+```
+
+After successful execution, the workflow commits updated processed artifacts using:
+
+```text
+Automated daily pipeline update
+```
+
+### Manual GitHub Actions Run
+
+1. Open the repository's `Actions` tab.
+2. Select `Daily Kalimati Pipeline`.
+3. Click `Run workflow`.
+
+### Optional Local Cron
+
+A local cron configuration is also provided.
+
+```bash
+bash ops/install_cron.sh
+```
+
+The documented local schedule is 07:05.
+
+Review the script and local timezone configuration before installing scheduled jobs.
+
+### Shell Wrapper
+
+```bash
+bash run_daily_pipeline.sh
+```
+
+The wrapper supports logged pipeline execution.
 
 ---
 
-## License
+## Project Structure
 
-MIT — see [LICENSE](LICENSE) if present, otherwise use freely with attribution.
+```text
+kalimati-saathi/
+│
+├── scraper/
+│   ├── fetch_kalimati_prices.py
+│   └── backfill_kalimati_history.py
+│
+├── analysis/
+│   ├── history_confidence.py
+│   ├── anomaly_report.py
+│   ├── forecast_baseline.py
+│   ├── generate_policy_flags.py
+│   ├── generate_market_brief.py
+│   ├── commodity_normalization_audit.py
+│   ├── data_quality_audit.py
+│   └── trend_report.py
+│
+├── storage/
+│   └── load_history_to_sqlite.py
+│
+├── dashboard/
+│   └── app.py
+│
+├── ops/
+│   ├── smoke_test_pipeline.py
+│   ├── install_cron.sh
+│   └── kalimati_crontab.txt
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── archive/
+│
+├── .github/workflows/
+│   └── daily_pipeline.yml
+│
+├── run_daily_pipeline.py
+├── run_daily_pipeline.sh
+├── requirements.txt
+└── README.md
+```
+
+### Component Responsibilities
+
+| Directory | Responsibility |
+| :--- | :--- |
+| `scraper/` | Current and historical data collection |
+| `analysis/` | Anomaly detection, forecasting, and quality assessment |
+| `storage/` | SQLite loading |
+| `dashboard/` | Interactive market analytics |
+| `ops/` | Pipeline validation and scheduling |
+| `data/` | Raw, processed, and archived artifacts |
 
 ---
 
-*Built for Nepal's fresh produce market. Data source: [kalimatimarket.gov.np](https://kalimatimarket.gov.np/price)*
+## Reliability and Limitations
+
+### Data Availability
+
+The scraper depends on the availability and structure of the source website.
+
+Website changes, missing dates, or incomplete records may affect collection and downstream analytics.
+
+### Historical Coverage
+
+Not all historical periods have equal data coverage.
+
+The confidence categories help distinguish periods with stronger and weaker historical records.
+
+### Forecast Interpretation
+
+The rolling-median forecast is a baseline for comparison.
+
+It does not account for every factor affecting agricultural commodity prices, including supply disruptions, weather, transportation, or demand changes.
+
+### Anomaly Interpretation
+
+Statistical anomalies identify unusual deviations from a baseline.
+
+They should not automatically be interpreted as errors, misconduct, or evidence of market manipulation.
+
+### Data Usage
+
+Users should verify source accuracy and applicable data-use conditions before redistributing or relying on collected records.
+
+---
+
+## Data Source
+
+[Kalimati Fruits and Vegetables Market](https://kalimatimarket.gov.np/price)
+
+This project uses market data for educational and analytical purposes.
+
+It is an independent technical project and does not imply official endorsement by the market operator.
+
+---
+
+## Author
+
+**Ganesh Pokharel**
+
+AI Engineer | Python Developer
+
+[GitHub](https://github.com/GaneshPokharel-tech) · [LinkedIn](https://www.linkedin.com/in/ganesh-pokharel-30786b192/)
+
+---
+
+*An applied data engineering project focused on historical market data, anomaly detection, statistical forecasting, and automated analytics.*
