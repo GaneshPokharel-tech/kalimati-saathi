@@ -8863,6 +8863,7 @@
 ,"कार्तिक २५, २०८३",कुरीलो,केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २६, २०८३",कुरीलो,केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २७, २०८३",कुरीलो,केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",कुरीलो,केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०७, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०९, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"चैत १०, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
@@ -8882,6 +8883,7 @@
 ,"चैत २६, २०८२",खुर्सानी हरियो(अकबरे),केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २३, २०८३",खु्र्सानी सुकेको,केजी,500.0,560.0,535.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २४, २०८३",खु्र्सानी सुकेको,केजी,500.0,560.0,535.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",खु्र्सानी सुकेको,केजी,500.0,560.0,530.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २४, २०८३",च्याउ(डल्ले),केजी,500.0,600.0,566.67,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २५, २०८३",च्याउ(डल्ले),केजी,500.0,600.0,562.5,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक १०, २०८३",जिरीको साग,केजी,700.0,800.0,750.0,statistical_outlier,True,True,flag_for_review
@@ -8935,6 +8937,7 @@
 ,"कार्तिक २५, २०८३",पार्सले,केजी,2400.0,2800.0,2600.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २६, २०८३",पार्सले,केजी,2400.0,2800.0,2600.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २७, २०८३",पार्सले,केजी,2400.0,2800.0,2600.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",पार्सले,केजी,2400.0,2800.0,2600.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०१, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०२, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ ०३, २०८३",पार्सले,केजी,1400.0,1500.0,1450.0,statistical_outlier,True,True,flag_for_review
@@ -8990,6 +8993,7 @@
 ,"कार्तिक २५, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २६, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २७, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २०, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २२, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
 ,"भदौ २४, २०८३",पुदीना,केजी,600.0,700.0,650.0,statistical_outlier,True,True,flag_for_review
@@ -9068,6 +9072,7 @@
 ,"कार्तिक २५, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २६, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २७, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०७, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०९, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत १०, २०८२",माछा सुकेको,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
@@ -9238,6 +9243,7 @@
 ,"कार्तिक २५, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २६, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"कार्तिक २७, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
+,"कार्तिक २८, २०८३",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०७, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत ०९, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
 ,"चैत १०, २०८२",सिताके च्याउ,केजी,800.0,1000.0,900.0,statistical_outlier,True,True,flag_for_review
